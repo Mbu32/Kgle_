@@ -1,14 +1,14 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.linear_model import LinearRegression, LogisticRegression, SGDClassifier
 from sklearn.neighbors import KNeighborsRegressor
 from pathlib import Path
 import tarfile
 import urllib.request
-
-from sklearn.metrics import confusion_matrix, precision_score,recall_score, f1_score, accuracy_score
-from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+from sklearn.metrics import confusion_matrix, precision_score,recall_score, f1_score, accuracy_score, precision_recall_curve
+from sklearn.model_selection import train_test_split, StratifiedShuffleSplit, GridSearchCV
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, MinMaxScaler, StandardScaler, FunctionTransformer
 from sklearn.compose import TransformedTargetRegressor, ColumnTransformer
@@ -199,36 +199,78 @@ update feature list
 #Took out Sex,Name,Age,SibSp,Fare, Parch, Title, Cabin,Embarked  will need to decide between Age Scaled/Group, Take out Embarked, 
 updated_features = ['PassengerId', 'Pclass', 'Sex_female', 'Sex_male',
        'Embarked_C', 'Embarked_Q', 'Embarked_S',  'Title_val',
-       'Age_scaled', 'age_group', 'Cabin_Val', 'Fare_Parch_sibsp',
+       'Age_scaled','age_group' , 'Cabin_Val', 'Fare_Parch_sibsp',
        'Fare_Parch_sibsp_scaled']
 
+updated_features_ = ['PassengerId', 'Pclass', 'Sex_female', 'Sex_male',
+       'Embarked_C', 'Embarked_Q', 'Embarked_S',  'Title_val',
+       'age_group', 'Cabin_Val', 'Fare_Parch_sibsp',
+       'Fare_Parch_sibsp_scaled']
 
+"""
+print(X[updated_features_].head(25))
+
+vif = pd.DataFrame()
+vif['feature']=X[updated_features_].columns
+vif['VIF']=[variance_inflation_factor(X.values,i)
+            for i in range(X.shape[1])]
+print(vif)"""
+
+'''Log Regression'''
 model_log = LogisticRegression(max_iter=10000)
-y_pred = cross_val_predict(model_log,X[updated_features],y_series,cv=3)
-
-
-cm = confusion_matrix(y,y_pred)
-print(cm)
+y_pred = cross_val_predict(model_log,X[updated_features_],y_series,cv=3,method='predict')
 
 
 
 
+
+'''SGDClassifier'''
+sgd_reg = SGDClassifier(loss='log_loss',
+                        max_iter=3000,
+                        tol=1e-5,
+                        penalty='l1',
+                        alpha=0.006,
+                        eta0=0.01,
+                        shuffle=True,
+                        n_iter_no_change=100,
+                        random_state=34,
+                        verbose=0,
+                        learning_rate='adaptive')
+
+
+"""param_grid = [
+    {'alpha': [.001,.006,.0001]},
+    {'learning_rate':['adaptive','invscaling']},
+    {'penalty':['l2','elasticnet']}
+  
+]
+grid_search = GridSearchCV(sgd_reg,param_grid,cv=3,scoring='neg_root_mean_squared_error')
+grid_search.fit(X[updated_features],y_series)
+print(grid_search.best_estimator_)
 """
-# For classification
-mi_scores = mutual_info_classif(X, y, random_state=42)
-mi_series = pd.Series(mi_scores, index=X.columns).sort_values(ascending=False)
+y_pred_sgd = cross_val_predict(sgd_reg,X[updated_features_],y_series,cv=3,method='predict')
 
-# For regression
-# mi_scores = mutual_info_regression(X, y, random_state=42)
 
-# Plot
-plt.figure(figsize=(10, 6))
-mi_series.plot(kind='bar')
-plt.title("Mutual Information Scores")
-plt.ylabel("MI Score")
-plt.tight_layout()
-plt.show()
 
-print("Top features by mutual information:")
-print(mi_series.head(10))
-"""
+acc_score = accuracy_score(y,y_pred_sgd)
+cm = confusion_matrix(y,y_pred_sgd)
+print(cm,acc_score)
+
+
+
+acc_score_log = accuracy_score(y,y_pred)
+cm_log = confusion_matrix(y,y_pred)
+print(cm_log,acc_score_log)
+'''
+SGD CLASSIFIER:
+[[487  62]
+ [127 215]] 0.7878787878787878
+
+ 
+
+Logistic Regression
+[[461  88]
+ [ 97 245]] 0.792368125701459
+
+
+'''
