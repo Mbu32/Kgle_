@@ -1,30 +1,34 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LinearRegression, LogisticRegression, SGDClassifier
+from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.neighbors import KNeighborsRegressor
 from pathlib import Path
 import tarfile
 import urllib.request
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.metrics import confusion_matrix, precision_score,recall_score, f1_score, accuracy_score, precision_recall_curve
-from sklearn.model_selection import train_test_split, StratifiedShuffleSplit, GridSearchCV
+from sklearn.model_selection import train_test_split, StratifiedShuffleSplit, GridSearchCV, RandomizedSearchCV
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, MinMaxScaler, StandardScaler, FunctionTransformer
+from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler, FunctionTransformer
 from sklearn.compose import TransformedTargetRegressor, ColumnTransformer
 from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.compose import make_column_selector, make_column_transformer
 from sklearn.metrics import root_mean_squared_error
 from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
 from sklearn.model_selection import cross_val_score, cross_val_predict
-
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.svm import LinearSVC, SVC
+
+
 
 test_set = pd.read_csv('data_kaggle/test.csv')
 train_set = pd.read_csv('data_kaggle/train.csv')
 
 
-features = ['PassengerId', 'Pclass', 'Name', 'Sex', 'Age', 'SibSp','Parch', 'Ticket', 'Fare', 'Cabin', 'Embarked']
+features = ['PassengerId', 'Pclass', 'Name', 'Sex', 'Age', 
+            'SibSp','Parch', 'Ticket', 'Fare', 'Cabin', 'Embarked']
 X = train_set[features].copy()
 y= train_set[['Survived']].copy()
 y_series = train_set['Survived'].copy()
@@ -37,7 +41,7 @@ y_series = train_set['Survived'].copy()
 
 
 
-'''Encoding Sex feature''' '''Might do EMBARKED here too might as well heeheee'''
+'''Encoding Sex & Embarked feature''' 
 emb_imp = SimpleImputer(strategy='most_frequent')
 X[['Embarked']]=emb_imp.fit_transform(X[['Embarked']])
 
@@ -151,10 +155,9 @@ X['Cabin_Val']=X.Cabin.str[0].map(deck_mapping).fillna(0)
 
 X['Fare_Parch_sibsp'] = X['Fare']/(X['Parch']+X['SibSp']+1)
 
-X['Fare_Parch_sibsp_scaled'] = StandardScaler().fit_transform(X[['Fare_Parch_sibsp']])
 
 
-'''Ticket Feature, WHAT NO CLUE BRO'''
+'''Ticket Feature'''
 X = X.drop("Ticket",axis=1)
 
 
@@ -204,8 +207,7 @@ updated_features = ['PassengerId', 'Pclass', 'Sex_female', 'Sex_male',
 
 updated_features_ = ['PassengerId', 'Pclass', 'Sex_female', 'Sex_male',
        'Embarked_C', 'Embarked_Q', 'Embarked_S',  'Title_val',
-       'age_group', 'Cabin_Val', 'Fare_Parch_sibsp',
-       'Fare_Parch_sibsp_scaled']
+       'age_group', 'Cabin_Val', 'Fare_Parch_sibsp']
 
 """
 print(X[updated_features_].head(25))
@@ -217,8 +219,8 @@ vif['VIF']=[variance_inflation_factor(X.values,i)
 print(vif)"""
 
 '''Log Regression'''
-model_log = LogisticRegression(max_iter=10000)
-y_pred = cross_val_predict(model_log,X[updated_features_],y_series,cv=3,method='predict')
+#model_log = LogisticRegression(max_iter=10000)
+#y_pred = cross_val_predict(model_log,X[updated_features_],y_series,cv=3,method='predict')
 
 
 
@@ -248,19 +250,24 @@ grid_search = GridSearchCV(sgd_reg,param_grid,cv=3,scoring='neg_root_mean_square
 grid_search.fit(X[updated_features],y_series)
 print(grid_search.best_estimator_)
 """
-y_pred_sgd = cross_val_predict(sgd_reg,X[updated_features_],y_series,cv=3,method='predict')
+#y_pred_sgd = cross_val_predict(sgd_reg,X[updated_features_],y_series,cv=3,method='predict')
 
 
 
-acc_score = accuracy_score(y,y_pred_sgd)
-cm = confusion_matrix(y,y_pred_sgd)
-print(cm,acc_score)
+#acc_score = accuracy_score(y,y_pred_sgd)
+#cm = confusion_matrix(y,y_pred_sgd)
+#print(cm,acc_score)
 
 
 
-acc_score_log = accuracy_score(y,y_pred)
-cm_log = confusion_matrix(y,y_pred)
-print(cm_log,acc_score_log)
+#acc_score_log = accuracy_score(y,y_pred)
+#cm_log = confusion_matrix(y,y_pred)
+#print(cm_log,acc_score_log)
+
+
+
+
+
 '''
 SGD CLASSIFIER:
 [[487  62]
@@ -271,6 +278,151 @@ SGD CLASSIFIER:
 Logistic Regression
 [[461  88]
  [ 97 245]] 0.792368125701459
+'''
 
+
+
+updated_features_svc = ['Pclass', 'Sex_female', 'Sex_male',
+       'Embarked_C', 'Embarked_Q', 'Embarked_S',  'Title_val',
+       'Age', 'Cabin_Val', 'Fare_Parch_sibsp']
+
+'''SVC'''
+
+
+
+"""
+lin_pipeline = Pipeline([('scaler',StandardScaler()),
+                        ('svc',SVC(kernel='rbf',C=1,gamma='scale',random_state=42))] )
+
+param_dist2 = {'svc__C':np.logspace(-3,2,20),
+               'svc__gamma':['scale', 'auto'] + list(np.logspace(-4, 1, 20)),
+               'svc__class_weight': [None],
+              'svc__tol':[1e-3]}
+
+
+randoms = RandomizedSearchCV(lin_pipeline,param_distributions=param_dist2,
+                             n_iter=30,
+                             cv=5,
+                             scoring='accuracy',
+                             random_state=42,
+                             n_jobs= 1
+                             )
+randoms.fit(X[updated_features_svc],y_series)
+print('\n',randoms.best_params_,'\n',randoms.best_score_)"""
 
 '''
+Linear SVR
+ {'svc__tol': 5e-06, 'svc__class_weight': None, 'svc__C': np.float64(10.0)} 
+ 0.792348251836043
+
+ 
+
+Poly SVR
+
+ {'svc__tol': 0.001, 'svc__gamma': np.float64(0.01), 'svc__degree': 3, 'svc__coef0': 1.5, 'svc__C': np.float64(16.666666666666668)}
+ 0.8226727763480008
+
+
+rbf SVR
+
+ {'svc__tol': 0.001, 'svc__gamma': np.float64(0.07847599703514607), 'svc__class_weight': None, 'svc__C': np.float64(2.636650898730358)}
+ 0.8238089259933463
+
+'''
+
+######PIPELINE FOR RBF SVR
+
+
+
+def feature_ratio(X):
+    return ((X[:,0]/((X[:,1]+X[:,2])+1)).reshape(-1,1))
+
+def ratio_name(function_transformer, feature_names_in):
+    return['Fare_Parch_sibsp']
+
+def ratio_pipeline():
+    return(make_pipeline(
+        SimpleImputer(strategy='most_frequent'),
+        FunctionTransformer(feature_ratio,feature_names_out=ratio_name),
+        StandardScaler()
+    ))
+
+
+def name(X):
+    title_map = {
+    'Mrs': 4,'Miss': 3,'Master': 2,'Dr': 2,'Rev': 1,'Mr': 1,       
+    'Col': 2,'Mlle': 3,'Mme': 4,'Ms': 3, 'Don': 1,'Dona': 4}
+    titles=(X['Name'].str.extract('([A-Za-z]+)\.',expand=False)).map(title_map).fillna(0)
+    return(titles.values.reshape(-1,1))
+
+
+def cabin_val(X):
+    deck_mapping = {
+    'A': 8, 'B': 7, 'C': 6, 'D': 5, 'E': 4,
+    'F': 3, 'G': 2, 'T': 1}
+
+    cabin_values = X.Cabin.str[0].map(deck_mapping).fillna(0)
+    return(cabin_values.values.reshape(-1,1))
+
+
+cat_pipeline = make_pipeline(
+    SimpleImputer(strategy='most_frequent'),
+    OneHotEncoder(handle_unknown='ignore')
+)
+
+
+name_pipeline = make_pipeline(
+    FunctionTransformer(name,validate=False),
+    StandardScaler())
+
+
+cabin_pipeline=make_pipeline(
+    FunctionTransformer(cabin_val,validate=False),
+    StandardScaler()
+)
+
+default_num_pipeline = make_pipeline(SimpleImputer(strategy='median'),
+                                     StandardScaler())
+
+
+
+preprocessing = ColumnTransformer([
+    ('Fare_Parch_sibsp', ratio_pipeline(),['Fare','Parch','SibSp']),
+    ('map_name',name_pipeline,['Name']),
+    ('map_cabin',cabin_pipeline,['Cabin']),
+    ('cat_feat',cat_pipeline,['Sex','Embarked']),
+],remainder=default_num_pipeline)
+
+
+full_pipeline = Pipeline([
+    ('preprocessing', preprocessing),
+    ('classifier', SVC(tol=.001,gamma=.07847599703514607,C=2.636650898730358,
+                       class_weight=None,random_state=42))
+])
+
+ 
+
+features = ['Name', 'Cabin', 'Sex', 'Embarked', 'Pclass', 
+            'Age', 'SibSp', 'Parch', 'Fare']
+
+test_set = pd.read_csv('data_kaggle/test.csv')
+train_set = pd.read_csv('data_kaggle/train.csv')
+
+X = train_set[features].copy()
+y_series = train_set['Survived'].copy()
+
+
+test_set_f = test_set[features].copy()
+
+
+full_pipeline.fit(X,y_series)
+predictions = full_pipeline.predict(test_set_f)
+
+
+submission = pd.DataFrame({
+    'PassengerId': test_set['PassengerId'],
+    'Survived':predictions
+})
+
+
+submission.to_csv('titanic_submission.csv',index=False)
