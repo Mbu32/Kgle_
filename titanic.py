@@ -23,8 +23,8 @@ from sklearn.svm import LinearSVC, SVC
 
 
 
-test_set = pd.read_csv('data_kaggle/test.csv')
-train_set = pd.read_csv('data_kaggle/train.csv')
+test_set = pd.read_csv('data_titanic/test.csv')
+train_set = pd.read_csv('data_titanic/train.csv')
 
 
 features = ['PassengerId', 'Pclass', 'Name', 'Sex', 'Age', 
@@ -390,7 +390,7 @@ preprocessing = ColumnTransformer([
     ('Fare_Parch_sibsp', ratio_pipeline(),['Fare','Parch','SibSp']),
     ('map_name',name_pipeline,['Name']),
     ('map_cabin',cabin_pipeline,['Cabin']),
-    ('cat_feat',cat_pipeline,['Sex','Embarked']),
+    ('cat_feat',cat_pipeline,['Sex','Embarked','Pclass']),
 ],remainder=default_num_pipeline)
 
 
@@ -405,8 +405,8 @@ full_pipeline = Pipeline([
 features = ['Name', 'Cabin', 'Sex', 'Embarked', 'Pclass', 
             'Age', 'SibSp', 'Parch', 'Fare']
 
-test_set = pd.read_csv('data_kaggle/test.csv')
-train_set = pd.read_csv('data_kaggle/train.csv')
+
+
 
 X = train_set[features].copy()
 y_series = train_set['Survived'].copy()
