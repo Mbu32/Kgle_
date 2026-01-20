@@ -63,11 +63,17 @@ ids = train['id']
 '''FEATURE ENGINEERING'''
 #Interactions terms = Sleep_hours x Sleep_quality ... study_hours x internet access .... class attendance x course
 
+sleep_q_map = {'poor':1,'average':2,'good':3}
+X['sleep_q_encoded'] = X['sleep_quality'].map(sleep_q_map)
 print(X['sleep_quality'].value_counts())
 
+X['sleep_qualityxhours'] = X['sleep_q_encoded']*X['sleep_hours']
 
-'''poly = PolynomialFeatures(degree=2, interaction_only=True,include_bias=False)
 
-interactions = poly.fit_transform(X[['sleep_q_enc','sleep_hours']])
+# 2
+internet_access_map = {'yes':2,"no":1}
+X['internet_encoded'] = X['internet_access'].map(internet_access_map)
 
-print(interactions)'''
+X['studhours_internet'] = X['internet_encoded']*X['study_hours']
+
+#3
