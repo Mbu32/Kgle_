@@ -25,7 +25,7 @@ from sklearn.svm import LinearSVR, SVR
 train = pd.read_csv('data_playground/train.csv')
 test = pd.read_csv('data_playground/test.csv')
 
-print(train.info())
+#print(train.info())
 
 '''
  #   Column            Non-Null Count   Dtype  
@@ -51,7 +51,6 @@ features = [ 'age', 'gender', 'course', 'study_hours', 'class_attendance',
 
 label = 'exam_score'
 
-cat_features = ['gender','course','exam_difficulty','internet_access','sleep_quality']
 
 X = train[features]
 y = train[label]
@@ -65,7 +64,6 @@ ids = train['id']
 
 sleep_q_map = {'poor':1,'average':2,'good':3}
 X['sleep_q_encoded'] = X['sleep_quality'].map(sleep_q_map)
-print(X['sleep_quality'].value_counts())
 
 X['sleep_qualityxhours'] = X['sleep_q_encoded']*X['sleep_hours']
 
@@ -76,4 +74,23 @@ X['internet_encoded'] = X['internet_access'].map(internet_access_map)
 
 X['studhours_internet'] = X['internet_encoded']*X['study_hours']
 
-#3
+#3 Going to leave this out for now.
+
+
+
+
+cat_features = ['gender','course','exam_difficulty','internet_access','sleep_quality','study_method','facility_rating']
+
+
+print(X.course.value_counts())
+print(X.exam_difficulty.value_counts())
+print(X.internet_access.value_counts())
+print(X.sleep_quality.value_counts())
+print(X.study_method.value_counts())
+print(X.facility_rating.value_counts())
+
+#Let's onehot encode
+
+"""onehot = OneHotEncoder()
+encoded = onehot.fit_transform()
+"""
