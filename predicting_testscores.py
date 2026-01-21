@@ -14,7 +14,7 @@ from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.compose import make_column_selector, make_column_transformer
 from sklearn.metrics import root_mean_squared_error
 from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
-from sklearn.model_selection import cross_val_score, cross_val_predict
+from sklearn.model_selection import cross_val_score, cross_val_predict, train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.svm import LinearSVR, SVR
@@ -24,6 +24,9 @@ from sklearn.svm import LinearSVR, SVR
 #could even be a regression tbh
 train = pd.read_csv('data_playground/train.csv')
 test = pd.read_csv('data_playground/test.csv')
+
+
+
 
 #print(train.info())
 
@@ -52,9 +55,11 @@ features = [ 'age', 'gender', 'course', 'study_hours', 'class_attendance',
 label = 'exam_score'
 
 
-X = train[features]
-y = train[label]
-ids = train['id']
+X = train[features].copy()
+y = train[label].copy()
+ids = train['id'].copy()
+
+X_train, X_test , y_train, y_test = train_test_split(X,y,test_size=.2,random_state=42,stratify= y)
 
 
 
@@ -63,34 +68,33 @@ ids = train['id']
 #Interactions terms = Sleep_hours x Sleep_quality ... study_hours x internet access .... class attendance x course
 
 sleep_q_map = {'poor':1,'average':2,'good':3}
-X['sleep_q_encoded'] = X['sleep_quality'].map(sleep_q_map)
+X_train['sleep_q_encoded'] = X_train['sleep_quality'].map(sleep_q_map)
 
-X['sleep_qualityxhours'] = X['sleep_q_encoded']*X['sleep_hours']
+X_train['sleep_qualityxhours'] = X_train['sleep_q_encoded']*X_train['sleep_hours']
 
 
 # 2
 internet_access_map = {'yes':2,"no":1}
-X['internet_encoded'] = X['internet_access'].map(internet_access_map)
+X_train['internet_encoded'] = X_train['internet_access'].map(internet_access_map)
 
-X['studhours_internet'] = X['internet_encoded']*X['study_hours']
+X_train['studhours_internet'] = X_train['internet_encoded']*X_train['study_hours']
 
 #3 Going to leave this out for now.
 
 
 
 
+
+
+
+
+#Let's onehot encode
 cat_features = ['gender','course','exam_difficulty','internet_access','sleep_quality','study_method','facility_rating']
 
 
-print(X.course.value_counts())
-print(X.exam_difficulty.value_counts())
-print(X.internet_access.value_counts())
-print(X.sleep_quality.value_counts())
-print(X.study_method.value_counts())
-print(X.facility_rating.value_counts())
 
-#Let's onehot encode
-
-"""onehot = OneHotEncoder()
-encoded = onehot.fit_transform()
-"""
+onehot = OneHotEncoder()
+encoded = onehot.fit_transform(X_train[cat_features])
+feature_names = onehot.get_feature_names_out(cat_features)
+cat_df = np.DataFrame(encoded,columns= feature_names,index=X_train.index)
+X_train = pd.concat([X_train,cat_df],axis=1)
