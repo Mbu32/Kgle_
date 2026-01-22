@@ -18,7 +18,9 @@ from sklearn.model_selection import cross_val_score, cross_val_predict, train_te
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.svm import LinearSVR, SVR
-from sklearn.ensemble import VotingRegressor
+from sklearn.ensemble import VotingRegressor, StackingRegressor, RandomForestRegressor, ExtraTreesRegressor
+import xgboost as xgb
+
 
 #most likely, I have a feeling the best way to calculate this would be through a Decision tree method. Maybe Kneighbour?
 #could even be a regression tbh
@@ -99,5 +101,11 @@ feature_names = onehot.get_feature_names_out(cat_features)
 cat_df = pd.DataFrame(encoded,columns= feature_names,index=X_train.index)
 X_train = pd.concat([X_train,cat_df],axis=1)
 
-X_train.hist()
-plt.show
+
+
+r_models = {
+    'rf':RandomForestRegressor(random_state=42),
+    'svr':SVR(random_state=42),
+    'knn':KNeighborsRegressor(),
+    'xgb':xgb(),
+}
