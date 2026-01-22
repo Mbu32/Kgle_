@@ -18,7 +18,7 @@ from sklearn.model_selection import cross_val_score, cross_val_predict, train_te
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.svm import LinearSVR, SVR
-
+from sklearn.ensemble import VotingRegressor
 
 #most likely, I have a feeling the best way to calculate this would be through a Decision tree method. Maybe Kneighbour?
 #could even be a regression tbh
@@ -79,7 +79,7 @@ X_train['internet_encoded'] = X_train['internet_access'].map(internet_access_map
 
 X_train['studhours_internet'] = X_train['internet_encoded']*X_train['study_hours']
 
-#3 Going to leave this out for now.
+#3 Going to leave this out for now. third interaction term I mean.
 
 
 
@@ -96,5 +96,8 @@ cat_features = ['gender','course','exam_difficulty','internet_access','sleep_qua
 onehot = OneHotEncoder()
 encoded = onehot.fit_transform(X_train[cat_features])
 feature_names = onehot.get_feature_names_out(cat_features)
-cat_df = np.DataFrame(encoded,columns= feature_names,index=X_train.index)
+cat_df = pd.DataFrame(encoded,columns= feature_names,index=X_train.index)
 X_train = pd.concat([X_train,cat_df],axis=1)
+
+X_train.hist()
+plt.show
