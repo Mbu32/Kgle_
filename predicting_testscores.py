@@ -19,6 +19,7 @@ from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.svm import LinearSVR, SVR
 from sklearn.ensemble import VotingRegressor, StackingRegressor, RandomForestRegressor, ExtraTreesRegressor,BaggingRegressor
 import xgboost as xgb
+from xgboost.callback import EarlyStopping
 from sklearn.linear_model import LinearRegression
 
 #most likely, I have a feeling the best way to calculate this would be through a Decision tree method. Maybe Kneighbour?
@@ -118,9 +119,9 @@ xgb_model = xgb.XGBRegressor(learning_rate = .1,
                           random_state=42)
 
 
-mapping_xgb = {'learning_rate':np.logspace(1e-2,1e-3,10),
+mapping_xgb = {'learning_rate':np.logspace(-2,-.5,10),
                'max_depth':[2,3,4,5,6],
-               'n_estimators':[500,800,1200],
+               'n_estimators':[300,500,800,1200],
                'subsample':np.linspace(.6,1,5),
                'colsample_bytree':np.linspace(.6,1,5),
                'reg_lambda':np.logspace(-2,2,10),
@@ -128,13 +129,21 @@ mapping_xgb = {'learning_rate':np.logspace(1e-2,1e-3,10),
 
 search = RandomizedSearchCV(estimator=xgb_model,
                             param_distributions=mapping_xgb,
+                            n_iter=25,
                             cv=3,scoring='neg_root_mean_squared_error',
                             verbose=1,
                             random_state=42)
 
+early_stop = EarlyStopping(
+    rounds=50,
+    save_best=True,
+    metric_name='rmse'
+)
+
 search.fit(X_train,y_train,
            eval_set=[(X_val,y_val)],
-           early_stopping_rounds=50,
+           early_stopping_rounds = 10,
+           callbacks=[early_stop],
            verbose=False)
 
 
