@@ -9,18 +9,17 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.model_selection import train_test_split, StratifiedShuffleSplit, GridSearchCV, RandomizedSearchCV
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler, FunctionTransformer, PolynomialFeatures
-from sklearn.compose import TransformedTargetRegressor, ColumnTransformer
+from sklearn.compose import TransformedTargetRegressor, ColumnTransformer, make_column_selector, make_column_transformer
 from sklearn.metrics.pairwise import rbf_kernel
-from sklearn.compose import make_column_selector, make_column_transformer
 from sklearn.metrics import root_mean_squared_error
 from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
 from sklearn.model_selection import cross_val_score, cross_val_predict, train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.svm import LinearSVR, SVR
-from sklearn.ensemble import VotingRegressor, StackingRegressor, RandomForestRegressor, ExtraTreesRegressor
+from sklearn.ensemble import VotingRegressor, StackingRegressor, RandomForestRegressor, ExtraTreesRegressor,BaggingRegressor
 import xgboost as xgb
-
+from sklearn.linear_model import LinearRegression
 
 #most likely, I have a feeling the best way to calculate this would be through a Decision tree method. Maybe Kneighbour?
 #could even be a regression tbh
@@ -61,7 +60,7 @@ X = train[features].copy()
 y = train[label].copy()
 ids = train['id'].copy()
 
-X_train, X_test , y_train, y_test = train_test_split(X,y,test_size=.2,random_state=42,stratify= y)
+X_train, X_val , y_train, y_val = train_test_split(X,y,test_size=.2,random_state=42,stratify= y)
 
 
 
@@ -103,9 +102,67 @@ X_train = pd.concat([X_train,cat_df],axis=1)
 
 
 
+#RandomSearchCV yaas queen
+
+xgb_model = xgb.XGBRegressor(learning_rate = .1,
+                          n_estimators=100,
+                          subsample=.6,
+                          colsample_bytree=.6,
+                          objective='reg:squarederror',
+                          max_depth=3,
+                          eval_metric='rmse',
+                          reg_lambda =1,
+                          reg_alpha=0,
+                          tree_method='hist',
+                          n_jobs=-1,
+                          random_state=42)
+
+
+mapping_xgb = {'learning_rate':np.logspace(1e-2,1e-3,10),
+               'max_depth':[2,3,4,5,6],
+               'n_estimators':[500,800,1200],
+               'subsample':np.linspace(.6,1,5),
+               'colsample_bytree':np.linspace(.6,1,5),
+               'reg_lambda':np.logspace(-2,2,10),
+               'reg_alpha':np.logspace(-3,1,8)}
+
+search = RandomizedSearchCV(estimator=xgb_model,
+                            param_distributions=mapping_xgb,
+                            cv=3,scoring='neg_root_mean_squared_error',
+                            verbose=1,
+                            random_state=42)
+
+search.fit(X_train,y_train,
+           eval_set=[(X_val,y_val)],
+           early_stopping_rounds=50,
+           verbose=False)
+
+
+
+
+
+
+
+
+"""#Bagging -> VotingRegressor
+
+bagged_lr = BaggingRegressor(estimator=RandomForestRegressor(),
+                             n_estimators=11,
+                             max_samples=.6,
+                             random_state=42)
+
+
+
+
 r_models = {
     'rf':RandomForestRegressor(random_state=42),
     'svr':SVR(random_state=42),
-    'knn':KNeighborsRegressor(),
-    'xgb':xgb(),
+    'knn':KNeighborsRegressor(random_state=42),
+    'xgb':xgb.XGBRegressor(random_state=42)
 }
+
+
+voting_regress = VotingRegressor(
+    estimators=[r_models]
+
+)"""
