@@ -94,7 +94,7 @@ cat_features = ['gender','course','exam_difficulty','internet_access','sleep_qua
 
 
 
-onehot = OneHotEncoder()
+onehot = OneHotEncoder(sparse_output=False)
 encoded = onehot.fit_transform(X_train[cat_features])
 feature_names = onehot.get_feature_names_out(cat_features)
 cat_df = pd.DataFrame(encoded,columns= feature_names,index=X_train.index)
@@ -102,7 +102,7 @@ X_train = pd.concat([X_train,cat_df],axis=1)
 
 
 
-#RandomSearchCV yaas queen
+#RandomSearchCV yaas slay
 
 xgb_model = xgb.XGBRegressor(learning_rate = .1,
                           n_estimators=100,
