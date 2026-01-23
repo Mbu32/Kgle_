@@ -103,6 +103,42 @@ X_train = pd.concat([X_train,cat_df],axis=1)
 
 
 
+
+'''Pipelines'''
+def interaction_terms(X):
+    return((X[:,0])*(X[:,1]))
+
+def encoder_term(function_transformer,features_names_in):
+    return('encoder_term')
+
+def ineraction_term(function_transformer,features_names_in):
+    return('interaction_term')
+
+
+def internet_encode(X):
+    internet_access_map = {'yes':2,"no":1}
+    internet_encoded =(X['internet_access'].map(internet_access_map))
+    return(internet_encoded.values.reshape(-1,1))
+
+def sleep_encode(X):
+    sleep_q_map = {'poor':1,'average':2,'good':3},
+    sleep_enc=X_train['sleep_quality'].map(sleep_q_map)
+    return(sleep_enc.values.reshape(-1,1))
+
+
+
+def ratio_pipeline():
+    return(make_pipeline(
+        SimpleImputer(strategy='median'),
+        FunctionTransformer(encoder_maps,feature_names_out=encoder_term),
+        FunctionTransformer(interaction_terms,feature_names_out=interaction_terms),
+        StandardScaler()
+    ))
+
+
+
+
+
 #RandomSearchCV yaas slay
 
 xgb_model = xgb.XGBRegressor(learning_rate = .1,
