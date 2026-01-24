@@ -111,7 +111,7 @@ def interaction_terms(X):
 def encoder_term(function_transformer,features_names_in):
     return('encoder_term')
 
-def ineraction_term(function_transformer,features_names_in):
+def interaction_term_name(function_transformer,features_names_in):
     return('interaction_term')
 
 
@@ -126,20 +126,23 @@ def sleep_encode(X):
     return(sleep_enc.values.reshape(-1,1))
 
 
+internet_pipeline = make_pipeline(
+    FunctionTransformer(internet_encode,validate=False)
+)
 
-def ratio_pipeline():
-    return(make_pipeline(
-        SimpleImputer(strategy='median'),
-        FunctionTransformer(encoder_maps,feature_names_out=encoder_term),
-        FunctionTransformer(interaction_terms,feature_names_out=interaction_terms),
-        StandardScaler()
-    ))
+sleep_pipeline = make_pipeline(
+    FunctionTransformer(sleep_encode,validate=False)
+)
+
+cat_pipeline = make_pipeline(
+    SimpleImputer(strategy='most_frequent'),
+    OneHotEncoder(handle_unknown='ignore')
+)
 
 
 
 
-
-#RandomSearchCV yaas slay
+#RandomSearchCV 
 
 xgb_model = xgb.XGBRegressor(learning_rate = .1,
                           n_estimators=100,
@@ -184,6 +187,7 @@ search.fit(X_train,y_train,
 
 
 
+#RandomForest
 
 
 
