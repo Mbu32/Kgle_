@@ -126,13 +126,25 @@ def sleep_encode(X):
     return(sleep_enc.values.reshape(-1,1))
 
 
+
+
+def ratio_pipeline():
+    return(make_pipeline(
+        SimpleImputer(strategy='most_frequent'),
+        FunctionTransformer(interaction_terms,feature_names_out=interaction_term_name),
+    ))
+
+
 internet_pipeline = make_pipeline(
+    SimpleImputer(strategy='median'),
     FunctionTransformer(internet_encode,validate=False)
 )
 
 sleep_pipeline = make_pipeline(
+    SimpleImputer(strategy='median'),
     FunctionTransformer(sleep_encode,validate=False)
 )
+
 
 cat_pipeline = make_pipeline(
     SimpleImputer(strategy='most_frequent'),
@@ -140,6 +152,9 @@ cat_pipeline = make_pipeline(
 )
 
 
+default_num_pipeline = make_pipeline(
+    SimpleImputer(strategy='median'),
+)
 
 
 #RandomSearchCV 
