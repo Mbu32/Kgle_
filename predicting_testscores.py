@@ -91,9 +91,17 @@ X_train['studhours_internet'] = X_train['internet_encoded']*X_train['study_hours
 
 
 #Let's onehot encode
-cat_features = ['gender','course','exam_difficulty','internet_access','sleep_quality','study_method','facility_rating']
+cat_features = ['gender','course','exam_difficulty',
+                'internet_access',
+                'study_method','facility_rating']
 
+int_features =['sleep_quality','sleep_hours','study_hours','internet_access']
 
+num_features = ['age',] #since rest in interaction term
+
+features = [ 'age', 'gender', 'course', 'study_hours', 'class_attendance',
+       'internet_access', 'sleep_hours', 'sleep_quality', 'study_method', 
+       'facility_rating', 'exam_difficulty']
 
 onehot = OneHotEncoder(sparse_output=False)
 encoded = onehot.fit_transform(X_train[cat_features])
@@ -156,6 +164,7 @@ default_num_pipeline = make_pipeline(
     SimpleImputer(strategy='median'),
 )
 
+tree_preprocessing = ColumnTransformer([])
 
 #RandomSearchCV 
 
