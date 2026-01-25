@@ -149,37 +149,42 @@ preprocessing_catboost = ColumnTransformer([
 
 
 
-#
-X_train_preprocessed_cat = preprocessing_catboost.fit_transform(X_train)
-X_val_preprocessed_cat = preprocessing_catboost.transform(X_val)
-#
-X_train_preprocessed = preprocessing_tree.fit_transform(X_train)
-X_val_preprocessed = preprocessing_tree.transform(X_val)
-#preprcossing tree I'll use for RandomForest, XGboost, LightGBM, for Catboost I'll have to switch it up because we donr need onehotencoder for that one
+#preprcossing tree I'll use for RandomForest, XGboost, LightGBM, 
+#for Catboost I'll have to switch it up because we donr need onehotencoder for that one
+rf_pipeline = Pipeline([
+    ('preprocessing',preprocessing_tree),
+    ('model_rf', RandomForestRegressor(random_state=42))
+]
+)
+light_pipeline = Pipeline([
+    ('preprocessing',preprocessing_tree),
+    ('model_lg', LGBMRegressor(random_state=42))
+]
+)
+cat_pipeline = Pipeline([
+    ('preprocessing',preprocessing_catboost),
+    ('model_rf', CatBoostRegressor(random_state=42,verbose=0,cat_features=[4, 5, 6, 7, 8, 9, 10]))
+]
+)
 
 
-#
-rf_first = RandomForestRegressor(random_state=42)
-cat_first = CatBoostRegressor(random_state=42,verbose=0)
-light_first = LGBMRegressor(random_state=42)
-#
-rf_first.fit(X_train_preprocessed,y_train)
-cat_first.fit(X_train_preprocessed_cat,y_train)
-light_first.fit(X_train_preprocessed,y_train)
-
-#
-y_pred_cat =cat_first.predict(X_val_preprocessed_cat)#
-y_pred_rf=rf_first.predict(X_val_preprocessed)#
-y_pred_light =light_first.predict(X_val_preprocessed)#
+rf_scores = cross_val_score(rf_pipeline,X_train,y_train,
+                            cv=3,scoring='neg_root_mean_squared_error')
+light_scores = cross_val_score(light_pipeline,X_train,y_train,
+                            cv=3,scoring='neg_root_mean_squared_error')
+cat_scores = cross_val_score(cat_pipeline,X_train,y_train,
+                            cv=3,scoring='neg_root_mean_squared_error')
 
 
-rmse_rf = root_mean_squared_error(y_val, y_pred_rf)
-rmse_light = root_mean_squared_error(y_val, y_pred_light)
-rmse_cat = root_mean_squared_error(y_val, y_pred_cat)
+print(f"RandomForest CV RMSE: {-rf_scores.mean():.3f} ± {rf_scores.std():.3f}")
+print(f"LIGHTGBM CV RMSE: {-rf_scores.mean():.3f} ± {rf_scores.std():.3f}")
+print(f"CatBoost CV RMSE: {-cat_scores.mean():.3f} ± {cat_scores.std():.3f}")
 
-print(f"RandomForest RMSE: {rmse_rf:.3f}")
-print(f"LightGBM RMSE: {rmse_light:.3f}")
-print(f"CatBoost RMSE: {rmse_cat:.3f}")
+
+
+
+
+
 
 #RandomSearchCV 
 
