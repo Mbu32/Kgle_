@@ -1,2 +1,4 @@
 rel_class.py
 catboost_info/
+perm_class.py
+__pycache__/

@@ -23,7 +23,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.inspection import permutation_importance
 from lightgbm import LGBMRegressor
 from catboost import CatBoostRegressor
-
+from perm_class import RegressionCV
 
 
 #most likely, I have a feeling the best way to calculate this would be through a Decision tree method. Maybe Kneighbour?
@@ -167,30 +167,65 @@ light_pipeline = Pipeline([
 ]
 )
 
-CatBoostRegressor(random_state=42,verbose=0,cat_features=['gender','course','exam_difficulty',
+catboost = CatBoostRegressor(random_state=42,verbose=0,cat_features=['gender','course','exam_difficulty',
                                                           'study_method','facility_rating',
                                                           'sleep_quality','internet_access'])
 
 
 
+mapping_catboost = {
+    'iterations': [100, 200, 300, 500],
+    'learning_rate': [0.01, 0.03, 0.05, 0.1, 0.2],
+    'depth': [4, 6, 8, 10],
+    'l2_leaf_reg': [1, 3, 5, 7, 9],
+    'subsample': [0.6, 0.7, 0.8, 0.9, 1.0],
+    'colsample_bylevel': [0.6, 0.7, 0.8, 0.9, 1.0],
+    'min_data_in_leaf': [1, 3, 5, 10, 20]
+}
 
-"""rf_scores = cross_val_score(rf_pipeline,X_train,y_train,
-                            cv=3,scoring='neg_root_mean_squared_error')"""
-light_scores = cross_val_score(light_pipeline,X_train,y_train,
-                            cv=3,scoring='neg_root_mean_squared_error')
-cat_scores = cross_val_score(cat_pipeline,X_train,y_train,
-                            cv=3,scoring='neg_root_mean_squared_error')
+
+search = RandomizedSearchCV(estimator=catboost,
+                            param_distributions=mapping_catboost,
+                            n_iter=15,
+                            cv=3,scoring='neg_root_mean_squared_error',
+                            verbose=1,
+                            random_state=42,
+                            error_score='raise',
+                            return_train_score=True
+                            )
+
+search.fit(X_train,y_train)
+
+best_model = search.best_estimator_
+best_params = search.best_params_
+score_tree = search.score(X_val,y_val)
+
+y_val_pred = best_model.predict(X_val)
+score_rmse = root_mean_squared_error(y_val, y_val_pred)
+
+print(f"Best parameters: {best_params}")
+print(f"Validation RMSE: {score_rmse:.3f}")
+print(f"Best CV RMSE during search: {-search.best_score_:.3f}")
 
 
-#print(f"RF CV RMSE: {-rf_scores.mean():.3f} ± {rf_scores.std():.3f}")
-print(f"LGBM CV RMSE: {-light_scores.mean():.3f} ± {light_scores.std():.3f}")
-print(f"CB CV RMSE: {-cat_scores.mean():.3f} ± {cat_scores.std():.3f}")
+
 
 
 
 '''
+cv_evaluator = RegressionCV(n_splits=3,shuffle=True,random_state=42)
+rf_scores = cv_evaluator.evaluate(model=rf_pipeline,X=X_train,y=y_train)
+light_scores = cv_evaluator.evaluate(model=light_pipeline,X=X_train,y=y_train)
+cat_scores = cv_evaluator.evaluate(model=catboost,X=X_train,y=y_train,is_catboost=True)
+
+print(light_scores,'\n',cat_scores)
+
+
+
+
 Randomforest CV RMSE: 9.726 ± 0.018
-LGBM CV RMSE: 9.450 ± 0.016
+{'rmse_mean': np.float64(9.447802217749887), 'rmse_std': np.float64(0.014736158789610541), 'rmse_per_fold': [9.467744016819557, 9.44307298314212, 9.432589653287987]} 
+ {'rmse_mean': np.float64(8.769734450398255), 'rmse_std': np.float64(0.014535704008107124), 'rmse_per_fold': [8.789620570202096, 8.764301015300843, 8.755281765691828]}
 
 '''
 
