@@ -25,8 +25,7 @@ from sklearn.linear_model import LinearRegression
 #most likely, I have a feeling the best way to calculate this would be through a Decision tree method. Maybe Kneighbour?
 #could even be a regression tbh
 train = pd.read_csv('data_playground/train.csv')
-test = pd.read_csv('data_playground/test.csv')
-
+test_set = pd.read_csv('data_playground/test.csv')
 
 
 
@@ -89,20 +88,6 @@ X_train['studhours_internet'] = X_train['internet_encoded']*X_train['study_hours
 
 
 
-#Let's onehot encode
-cat_features = ['gender','course','exam_difficulty',
-                'study_method','facility_rating']
-
-int_features =['sleep_quality','sleep_hours','study_hours','internet_access','study_hours','study_method']
-
-num_features = ['age'] #since rest in interaction term
-
-features = [ 'age', 'gender', 'course', 'study_hours', 'class_attendance',
-       'internet_access', 'sleep_hours', 'sleep_quality', 'study_method', 
-       'facility_rating', 'exam_difficulty',
-       'sleep_quality_hours_interaction','Internet_studyhours_int']
-
-
 
 
 
@@ -110,15 +95,14 @@ features = [ 'age', 'gender', 'course', 'study_hours', 'class_attendance',
 
 
 def internet_interaction(X):
-    internet_access_map = {'yes':2,"no":1}
-    internet_encoded =pd.Series(X[:,0].map(internet_access_map)).fillna(0)
-    study_method = X[:,1]
-    return((internet_encoded*study_method).reshape(-1,1))
+    study_hours = X[:,1].astype(float)
+    internet_encoded = np.where(X[:,0]=='yes' ,2,1)
+    return((internet_encoded*study_hours).reshape(-1,1))
 
 def sleep_interaction(X):
-    sleep_q_map = {'poor':1,'average':2,'good':3},
-    sleep_q=pd.Series(X[:,0].map(sleep_q_map)).fillna(0)
-    sleep_hours = X[:,1]
+    sleep_q_map = {'poor':1,'average':2,'good':3}
+    sleep_q= np.vectorize(sleep_q_map.get)(X[:,0])
+    sleep_hours = X[:,1].astype(float)
     return(sleep_q*sleep_hours).reshape(-1,1)
 
 
@@ -143,30 +127,43 @@ default_num_pipeline = make_pipeline(
     SimpleImputer(strategy='median'),
 )
 
-tree_pipeline = Pipeline([
-    ('preprocessing',ColumnTransformer([
+
+preprocessing_tree = ColumnTransformer([
         ('Internetxstudy_hours',internet_interaction_pipeline,['internet_access','study_hours']),
         ('sleep_encoded',sleep_interaction_pipeline,['sleep_quality','sleep_hours']),
-        ('cat_feat',cat_pipeline,['gender','course','exam_difficulty','study_method','facility_rating','class_attendance']),
-        ('numeric',default_num_pipeline,['age'])
-    ])),
-    ('model',xgb.XGBRegressor(learning_rate=.1,
-                              n_estimators=100,
-                              subsample=.6,
-                              colsample_bytree=.6,
+        ('cat_feat',cat_pipeline,['gender','course','exam_difficulty','study_method','facility_rating']),
+        ('numeric',default_num_pipeline,['age','class_attendance'])
+        ])
+
+full_tree_pipeline = Pipeline([
+    ('preprocessing',preprocessing_tree),
+    ('model',xgb.XGBRegressor(learning_rate=0.046415888336127774,
+                              n_estimators= 1200,
+                              subsample=1,
+                              colsample_bytree=.7,
                               objective='reg:squarederror',
-                              max_depth=3,
+                              max_depth=6,
                               eval_metric='rmse',
                               reg_lambda=1,
                               reg_alpha=0,
                               tree_method='hist',
                               n_jobs=-1,
-                              random_state=42
-    ))
+                              random_state=42))
 ])
 
-#RandomSearchCV 
 
+
+full_tree_pipeline.fit(X,y)
+prediction = full_tree_pipeline.predict(test_set)
+
+submissions = pd.DataFrame({
+    'id':test_set['id'],
+    'exam_score': prediction
+})
+
+submissions.to_csv('testscores_submission.csv',index=False)
+#RandomSearchCV 
+'''
 mapping_xgb = {'model__learning_rate':np.logspace(-2,-.5,10),
                'model__max_depth':[2,3,4,5,6],
                'model__n_estimators':[300,500,800,1200],
@@ -177,21 +174,32 @@ mapping_xgb = {'model__learning_rate':np.logspace(-2,-.5,10),
 
 
 
-search = RandomizedSearchCV(estimator=tree_pipeline,
+search = RandomizedSearchCV(estimator=full_tree_pipeline,
                             param_distributions=mapping_xgb,
                             n_iter=25,
                             cv=3,scoring='neg_root_mean_squared_error',
                             verbose=1,
-                            random_state=42)
-
-
+                            random_state=42,
+                            error_score='raise'
+                            )
 search.fit(X_train,y_train)
-
 best_model = search.best_params_
 score_tree = search.score(X_val,y_val)
-print(best_model)
+print(best_model,'\n',score_tree)
 
 
+{'model__subsample': np.float64(1.0),
+ 'model__reg_lambda': np.float64(1.6681005372000592),
+ 'model__reg_alpha': np.float64(0.7196856730011514), 
+ 'model__n_estimators': 1200, 
+ 'model__max_depth': 6, 
+ 'model__learning_rate': np.float64(0.046415888336127774), 
+ 'model__colsample_bytree': np.float64(0.7)}
+ 
+ R^2: -9.383293361587777
+
+
+'''
 #RandomForest
 
 
