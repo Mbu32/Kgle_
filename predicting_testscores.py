@@ -102,11 +102,6 @@ features = [ 'age', 'gender', 'course', 'study_hours', 'class_attendance',
        'facility_rating', 'exam_difficulty',
        'sleep_quality_hours_interaction','Internet_studyhours_int']
 
-onehot = OneHotEncoder(sparse_output=False)
-encoded = onehot.fit_transform(X_train[cat_features])
-feature_names = onehot.get_feature_names_out(cat_features)
-cat_df = pd.DataFrame(encoded,columns= feature_names,index=X_train.index)
-X_train = pd.concat([X_train,cat_df],axis=1)
 
 
 
@@ -148,56 +143,53 @@ default_num_pipeline = make_pipeline(
     SimpleImputer(strategy='median'),
 )
 
-tree_preprocessing = ColumnTransformer([
-    ('Internetxstudy_hours',internet_interaction_pipeline,['internet_access','study_hours']),
-    ('sleep_encoded',sleep_interaction_pipeline,['sleep_quality','sleep_hours']),
-    ('cat_feat',cat_pipeline,['gender','course','exam_difficulty','study_method','facility_rating']),
-    ('numeric',default_num_pipeline,['age'])
+tree_pipeline = Pipeline([
+    ('preprocessing',ColumnTransformer([
+        ('Internetxstudy_hours',internet_interaction_pipeline,['internet_access','study_hours']),
+        ('sleep_encoded',sleep_interaction_pipeline,['sleep_quality','sleep_hours']),
+        ('cat_feat',cat_pipeline,['gender','course','exam_difficulty','study_method','facility_rating','class_attendance']),
+        ('numeric',default_num_pipeline,['age'])
+    ])),
+    ('model',xgb.XGBRegressor(learning_rate=.1,
+                              n_estimators=100,
+                              subsample=.6,
+                              colsample_bytree=.6,
+                              objective='reg:squarederror',
+                              max_depth=3,
+                              eval_metric='rmse',
+                              reg_lambda=1,
+                              reg_alpha=0,
+                              tree_method='hist',
+                              n_jobs=-1,
+                              random_state=42
+    ))
 ])
 
 #RandomSearchCV 
 
-xgb_model = xgb.XGBRegressor(learning_rate = .1,
-                          n_estimators=100,
-                          subsample=.6,
-                          colsample_bytree=.6,
-                          objective='reg:squarederror',
-                          max_depth=3,
-                          eval_metric='rmse',
-                          reg_lambda =1,
-                          reg_alpha=0,
-                          tree_method='hist',
-                          n_jobs=-1,
-                          random_state=42)
+mapping_xgb = {'model__learning_rate':np.logspace(-2,-.5,10),
+               'model__max_depth':[2,3,4,5,6],
+               'model__n_estimators':[300,500,800,1200],
+               'model__subsample':np.linspace(.6,1,5),
+               'model__colsample_bytree':np.linspace(.6,1,5),
+               'model__reg_lambda':np.logspace(-2,2,10),
+               'model__reg_alpha':np.logspace(-3,1,8)}
 
 
-mapping_xgb = {'learning_rate':np.logspace(-2,-.5,10),
-               'max_depth':[2,3,4,5,6],
-               'n_estimators':[300,500,800,1200],
-               'subsample':np.linspace(.6,1,5),
-               'colsample_bytree':np.linspace(.6,1,5),
-               'reg_lambda':np.logspace(-2,2,10),
-               'reg_alpha':np.logspace(-3,1,8)}
 
-search = RandomizedSearchCV(estimator=xgb_model,
+search = RandomizedSearchCV(estimator=tree_pipeline,
                             param_distributions=mapping_xgb,
                             n_iter=25,
                             cv=3,scoring='neg_root_mean_squared_error',
                             verbose=1,
                             random_state=42)
 
-early_stop = EarlyStopping(
-    rounds=50,
-    save_best=True,
-    metric_name='rmse'
-)
 
-search.fit(X_train,y_train,
-           eval_set=[(X_val,y_val)],
-           early_stopping_rounds = 10,
-           callbacks=[early_stop],
-           verbose=False)
+search.fit(X_train,y_train)
 
+best_model = search.best_params_
+score_tree = search.score(X_val,y_val)
+print(best_model)
 
 
 #RandomForest
