@@ -18,9 +18,10 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.svm import LinearSVR, SVR
 from sklearn.ensemble import VotingRegressor, StackingRegressor, RandomForestRegressor, ExtraTreesRegressor,BaggingRegressor
-import xgboost as xgb
+from xgboost import XGBRegressor
 from xgboost.callback import EarlyStopping
 from sklearn.linear_model import LinearRegression
+from sklearn.inspection import permutation_importance
 
 #most likely, I have a feeling the best way to calculate this would be through a Decision tree method. Maybe Kneighbour?
 #could even be a regression tbh
@@ -137,7 +138,7 @@ preprocessing_tree = ColumnTransformer([
 
 full_tree_pipeline = Pipeline([
     ('preprocessing',preprocessing_tree),
-    ('model',xgb.XGBRegressor(learning_rate=0.046415888336127774,
+    ('model',XGBRegressor(learning_rate=0.046415888336127774,
                               n_estimators= 1200,
                               subsample=1,
                               colsample_bytree=.7,
@@ -151,20 +152,30 @@ full_tree_pipeline = Pipeline([
                               random_state=42))
 ])
 
+full_tree_pipeline.fit(X_train,y_train)
+
+r=  permutation_importance(full_tree_pipeline,
+                           X_val,
+                           y_val,
+                           n_repeats=10,
+                           random_state=42,
+                           n_jobs=-1)
 
 
-full_tree_pipeline.fit(X,y)
-prediction = full_tree_pipeline.predict(test_set)
+preprocessor = full_tree_pipeline.named_steps['preprocessing']
+feature_names = preprocessor.get_feature_names_out()
+perm_fi = pd.DataFrame({
+    'feature': feature_names,
+    'importance': r.importances_mean
+}).sort_values(by='importance', ascending=False)
 
-submissions = pd.DataFrame({
-    'id':test_set['id'],
-    'exam_score': prediction
-})
+print(perm_fi.head(15))
 
-submissions.to_csv('data_playground/testscores_submission.csv',index=False)
+
+
 #RandomSearchCV 
-'''
-mapping_xgb = {'model__learning_rate':np.logspace(-2,-.5,10),
+
+"""mapping_xgb = {'model__learning_rate':np.logspace(-2,-.5,10),
                'model__max_depth':[2,3,4,5,6],
                'model__n_estimators':[300,500,800,1200],
                'model__subsample':np.linspace(.6,1,5),
@@ -185,9 +196,28 @@ search = RandomizedSearchCV(estimator=full_tree_pipeline,
 search.fit(X_train,y_train)
 best_model = search.best_params_
 score_tree = search.score(X_val,y_val)
-print(best_model,'\n',score_tree)
+print(best_model,'\n',score_tree)"""
+
+"""
+final_model = XGBRegressor(learning_rate=0.046415888336127774,n_estimators= 1200,subsample=1,
+                               colsample_bytree=.7,
+                               objective='reg:squarederror',
+                               max_depth=6,eval_metric='rmse',
+                               reg_lambda=1,reg_alpha=0,
+                               tree_method='hist',n_jobs=-1,
+                               random_state=42)
 
 
+X_train_processed = preprocessing_tree.fit_transform(X_train)
+X_val_processed = preprocessing_tree.transform(X_val)
+
+final_model.fit(X_train_processed,y_train,
+                       eval_set = [(X_val_processed,y_val)],
+                       verbose=100)
+"""
+
+
+'''
 {'model__subsample': np.float64(1.0),
  'model__reg_lambda': np.float64(1.6681005372000592),
  'model__reg_alpha': np.float64(0.7196856730011514), 
@@ -196,7 +226,7 @@ print(best_model,'\n',score_tree)
  'model__learning_rate': np.float64(0.046415888336127774), 
  'model__colsample_bytree': np.float64(0.7)}
  
- R^2: -9.383293361587777
+ score: -9.383293361587777
 
 
 '''
@@ -228,3 +258,21 @@ voting_regress = VotingRegressor(
     estimators=[r_models]
 
 )"""
+
+
+
+
+
+
+
+
+#subsmission
+"""full_tree_pipeline.fit(X,y)
+prediction = full_tree_pipeline.predict(test_set)
+
+submissions = pd.DataFrame({
+    'id':test_set['id'],
+    'exam_score': prediction
+})
+
+submissions.to_csv('data_playground/testscores_submission.csv',index=False)"""
