@@ -176,9 +176,9 @@ cat_scores = cross_val_score(cat_pipeline,X_train,y_train,
                             cv=3,scoring='neg_root_mean_squared_error')
 
 
-print(f"RandomForest CV RMSE: {-rf_scores.mean():.3f} ± {rf_scores.std():.3f}")
-print(f"LIGHTGBM CV RMSE: {-rf_scores.mean():.3f} ± {rf_scores.std():.3f}")
-print(f"CatBoost CV RMSE: {-cat_scores.mean():.3f} ± {cat_scores.std():.3f}")
+print(f"RF CV RMSE: {-rf_scores.mean():.3f} ± {rf_scores.std():.3f}")
+print(f"LGBM CV RMSE: {-rf_scores.mean():.3f} ± {rf_scores.std():.3f}")
+print(f"CB CV RMSE: {-cat_scores.mean():.3f} ± {cat_scores.std():.3f}")
 
 
 
