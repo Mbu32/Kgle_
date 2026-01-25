@@ -19,9 +19,12 @@ from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.svm import LinearSVR, SVR
 from sklearn.ensemble import VotingRegressor, StackingRegressor, RandomForestRegressor, ExtraTreesRegressor,BaggingRegressor
 from xgboost import XGBRegressor
-from xgboost.callback import EarlyStopping
 from sklearn.linear_model import LinearRegression
 from sklearn.inspection import permutation_importance
+from lightgbm import LGBMRegressor
+from catboost import CatBoostRegressor
+
+
 
 #most likely, I have a feeling the best way to calculate this would be through a Decision tree method. Maybe Kneighbour?
 #could even be a regression tbh
@@ -136,42 +139,47 @@ preprocessing_tree = ColumnTransformer([
         ('numeric',default_num_pipeline,['age','class_attendance'])
         ])
 
-full_tree_pipeline = Pipeline([
-    ('preprocessing',preprocessing_tree),
-    ('model',XGBRegressor(learning_rate=0.046415888336127774,
-                              n_estimators= 1200,
-                              subsample=1,
-                              colsample_bytree=.7,
-                              objective='reg:squarederror',
-                              max_depth=6,
-                              eval_metric='rmse',
-                              reg_lambda=1,
-                              reg_alpha=0,
-                              tree_method='hist',
-                              n_jobs=-1,
-                              random_state=42))
+preprocessing_catboost = ColumnTransformer([
+    ('numeric', SimpleImputer(strategy='median'), 
+     ['age', 'study_hours', 'sleep_hours', 'class_attendance']),
+    
+    ('categorical', 'passthrough', ['gender','course','exam_difficulty','study_method',
+      'facility_rating','sleep_quality','internet_access'])
 ])
 
-full_tree_pipeline.fit(X_train,y_train)
-
-r=  permutation_importance(full_tree_pipeline,
-                           X_val,
-                           y_val,
-                           n_repeats=10,
-                           random_state=42,
-                           n_jobs=-1)
 
 
-preprocessor = full_tree_pipeline.named_steps['preprocessing']
-feature_names = preprocessor.get_feature_names_out()
-perm_fi = pd.DataFrame({
-    'feature': feature_names,
-    'importance': r.importances_mean
-}).sort_values(by='importance', ascending=False)
+#
+X_train_preprocessed_cat = preprocessing_catboost.fit_transform(X_train)
+X_val_preprocessed_cat = preprocessing_catboost.transform(X_val)
+#
+X_train_preprocessed = preprocessing_tree.fit_transform(X_train)
+X_val_preprocessed = preprocessing_tree.transform(X_val)
+#preprcossing tree I'll use for RandomForest, XGboost, LightGBM, for Catboost I'll have to switch it up because we donr need onehotencoder for that one
 
-print(perm_fi.head(15))
+
+#
+rf_first = RandomForestRegressor(random_state=42)
+cat_first = CatBoostRegressor(random_state=42,verbose=0)
+light_first = LGBMRegressor(random_state=42)
+#
+rf_first.fit(X_train_preprocessed,y_train)
+cat_first.fit(X_train_preprocessed_cat,y_train)
+light_first.fit(X_train_preprocessed,y_train)
+
+#
+y_pred_cat =cat_first.predict(X_val_preprocessed_cat)#
+y_pred_rf=rf_first.predict(X_val_preprocessed)#
+y_pred_light =light_first.predict(X_val_preprocessed)#
 
 
+rmse_rf = root_mean_squared_error(y_val, y_pred_rf)
+rmse_light = root_mean_squared_error(y_val, y_pred_light)
+rmse_cat = root_mean_squared_error(y_val, y_pred_cat)
+
+print(f"RandomForest RMSE: {rmse_rf:.3f}")
+print(f"LightGBM RMSE: {rmse_light:.3f}")
+print(f"CatBoost RMSE: {rmse_cat:.3f}")
 
 #RandomSearchCV 
 
@@ -198,6 +206,9 @@ best_model = search.best_params_
 score_tree = search.score(X_val,y_val)
 print(best_model,'\n',score_tree)"""
 
+
+
+#Model after RandomSearchCV parameters:
 """
 final_model = XGBRegressor(learning_rate=0.046415888336127774,n_estimators= 1200,subsample=1,
                                colsample_bytree=.7,
@@ -206,17 +217,9 @@ final_model = XGBRegressor(learning_rate=0.046415888336127774,n_estimators= 1200
                                reg_lambda=1,reg_alpha=0,
                                tree_method='hist',n_jobs=-1,
                                random_state=42)
-
-
-X_train_processed = preprocessing_tree.fit_transform(X_train)
-X_val_processed = preprocessing_tree.transform(X_val)
-
-final_model.fit(X_train_processed,y_train,
-                       eval_set = [(X_val_processed,y_val)],
-                       verbose=100)
 """
 
-
+#Results of XGB:
 '''
 {'model__subsample': np.float64(1.0),
  'model__reg_lambda': np.float64(1.6681005372000592),
@@ -234,30 +237,23 @@ final_model.fit(X_train_processed,y_train,
 
 
 
+"""Stacking Regressor
 
 
-"""#Bagging -> VotingRegressor
-
-bagged_lr = BaggingRegressor(estimator=RandomForestRegressor(),
-                             n_estimators=11,
-                             max_samples=.6,
-                             random_state=42)
-
-
-
-
-r_models = {
-    'rf':RandomForestRegressor(random_state=42),
-    'svr':SVR(random_state=42),
-    'knn':KNeighborsRegressor(random_state=42),
-    'xgb':xgb.XGBRegressor(random_state=42)
-}
+stack = StackingRegressor(
+    estimators=[
+        ('rf', rf_pipeline),
+        ('ridge', ridge_pipeline),
+        ('hgb', hgb_pipeline)
+    ],
+    final_estimator=Ridge(alpha=1.0),
+    passthrough=False,
+    n_jobs=-1
+)
 
 
-voting_regress = VotingRegressor(
-    estimators=[r_models]
-
-)"""
+add XGB after we check those three
+"""
 
 
 
