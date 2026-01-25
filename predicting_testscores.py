@@ -71,7 +71,7 @@ X_train, X_val , y_train, y_val = train_test_split(X,y,test_size=.2,random_state
 '''FEATURE ENGINEERING'''
 #Interactions terms = Sleep_hours x Sleep_quality ... study_hours x internet access .... class attendance x course
 
-sleep_q_map = {'poor':1,'average':2,'good':3}
+"""sleep_q_map = {'poor':1,'average':2,'good':3}
 X_train['sleep_q_encoded'] = X_train['sleep_quality'].map(sleep_q_map)
 
 X_train['sleep_qualityxhours'] = X_train['sleep_q_encoded']*X_train['sleep_hours']
@@ -81,7 +81,7 @@ X_train['sleep_qualityxhours'] = X_train['sleep_q_encoded']*X_train['sleep_hours
 internet_access_map = {'yes':2,"no":1}
 X_train['internet_encoded'] = X_train['internet_access'].map(internet_access_map)
 
-X_train['studhours_internet'] = X_train['internet_encoded']*X_train['study_hours']
+X_train['studhours_internet'] = X_train['internet_encoded']*X_train['study_hours']"""
 
 #3 Going to leave this out for now. third interaction term I mean.
 
@@ -110,15 +110,26 @@ def sleep_interaction(X):
     return(sleep_q*sleep_hours).reshape(-1,1)
 
 
-internet_interaction_pipeline = make_pipeline(
-    SimpleImputer(strategy='most_frequent'),
-    FunctionTransformer(internet_interaction,validate=False)
-)
+def internet_hours_name(function_transformer,feature_names_in):
+    return['Internetxstudy_hours']
 
-sleep_interaction_pipeline = make_pipeline(
-    SimpleImputer(strategy='most_frequent'),
-    FunctionTransformer(sleep_interaction,validate=False)
-)
+
+def sleep_quality_name(function_transformer,feature_names_in):
+    return['sleep_q_int']
+
+
+def internet_interaction_pipeline():
+    return(make_pipeline(
+        SimpleImputer(strategy='most_frequent'),
+        FunctionTransformer(internet_interaction,validate=False,
+                            feature_names_out=internet_hours_name)))
+
+
+def sleep_interaction_pipeline():
+    return (make_pipeline(
+        SimpleImputer(strategy='most_frequent'),
+        FunctionTransformer(sleep_interaction,validate=False,
+                            feature_names_out=sleep_quality_name)))
 
 
 cat_pipeline = make_pipeline(
@@ -133,56 +144,55 @@ default_num_pipeline = make_pipeline(
 
 
 preprocessing_tree = ColumnTransformer([
-        ('Internetxstudy_hours',internet_interaction_pipeline,['internet_access','study_hours']),
-        ('sleep_encoded',sleep_interaction_pipeline,['sleep_quality','sleep_hours']),
+        ('Internetxstudy_hours',internet_interaction_pipeline(),['internet_access','study_hours']),
+        ('sleep_q_int',sleep_interaction_pipeline(),['sleep_quality','sleep_hours']),
         ('cat_feat',cat_pipeline,['gender','course','exam_difficulty','study_method','facility_rating']),
         ('numeric',default_num_pipeline,['age','class_attendance'])
-        ])
-
-preprocessing_catboost = ColumnTransformer([
-    ('numeric', SimpleImputer(strategy='median'), 
-     ['age', 'study_hours', 'sleep_hours', 'class_attendance']),
-    
-    ('categorical', 'passthrough', ['gender','course','exam_difficulty','study_method',
-      'facility_rating','sleep_quality','internet_access'])
-])
+        ],remainder='drop', verbose_feature_names_out=True)
 
 
 
-#preprcossing tree I'll use for RandomForest, XGboost, LightGBM, 
+
+
+#preprocessing tree I'll use for RandomForest, XGboost, LightGBM, 
 #for Catboost I'll have to switch it up because we donr need onehotencoder for that one
-rf_pipeline = Pipeline([
+"""rf_pipeline = Pipeline([
     ('preprocessing',preprocessing_tree),
     ('model_rf', RandomForestRegressor(random_state=42))
 ]
-)
+)"""
 light_pipeline = Pipeline([
     ('preprocessing',preprocessing_tree),
-    ('model_lg', LGBMRegressor(random_state=42))
-]
-)
-cat_pipeline = Pipeline([
-    ('preprocessing',preprocessing_catboost),
-    ('model_rf', CatBoostRegressor(random_state=42,verbose=0,cat_features=[4, 5, 6, 7, 8, 9, 10]))
+    ('model_lg', LGBMRegressor(random_state=42,verbose=-1))
 ]
 )
 
+CatBoostRegressor(random_state=42,verbose=0,cat_features=['gender','course','exam_difficulty',
+                                                          'study_method','facility_rating',
+                                                          'sleep_quality','internet_access'])
 
-rf_scores = cross_val_score(rf_pipeline,X_train,y_train,
-                            cv=3,scoring='neg_root_mean_squared_error')
+
+
+
+"""rf_scores = cross_val_score(rf_pipeline,X_train,y_train,
+                            cv=3,scoring='neg_root_mean_squared_error')"""
 light_scores = cross_val_score(light_pipeline,X_train,y_train,
                             cv=3,scoring='neg_root_mean_squared_error')
 cat_scores = cross_val_score(cat_pipeline,X_train,y_train,
                             cv=3,scoring='neg_root_mean_squared_error')
 
 
-print(f"RF CV RMSE: {-rf_scores.mean():.3f} ± {rf_scores.std():.3f}")
-print(f"LGBM CV RMSE: {-rf_scores.mean():.3f} ± {rf_scores.std():.3f}")
+#print(f"RF CV RMSE: {-rf_scores.mean():.3f} ± {rf_scores.std():.3f}")
+print(f"LGBM CV RMSE: {-light_scores.mean():.3f} ± {light_scores.std():.3f}")
 print(f"CB CV RMSE: {-cat_scores.mean():.3f} ± {cat_scores.std():.3f}")
 
 
 
+'''
+Randomforest CV RMSE: 9.726 ± 0.018
+LGBM CV RMSE: 9.450 ± 0.016
 
+'''
 
 
 
