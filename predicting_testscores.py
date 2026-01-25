@@ -65,7 +65,6 @@ X_train, X_val , y_train, y_val = train_test_split(X,y,test_size=.2,random_state
 
 
 
-
 '''FEATURE ENGINEERING'''
 #Interactions terms = Sleep_hours x Sleep_quality ... study_hours x internet access .... class attendance x course
 
@@ -92,16 +91,16 @@ X_train['studhours_internet'] = X_train['internet_encoded']*X_train['study_hours
 
 #Let's onehot encode
 cat_features = ['gender','course','exam_difficulty',
-                'internet_access',
                 'study_method','facility_rating']
 
-int_features =['sleep_quality','sleep_hours','study_hours','internet_access']
+int_features =['sleep_quality','sleep_hours','study_hours','internet_access','study_hours','study_method']
 
-num_features = ['age',] #since rest in interaction term
+num_features = ['age'] #since rest in interaction term
 
 features = [ 'age', 'gender', 'course', 'study_hours', 'class_attendance',
        'internet_access', 'sleep_hours', 'sleep_quality', 'study_method', 
-       'facility_rating', 'exam_difficulty']
+       'facility_rating', 'exam_difficulty',
+       'sleep_quality_hours_interaction','Internet_studyhours_int']
 
 onehot = OneHotEncoder(sparse_output=False)
 encoded = onehot.fit_transform(X_train[cat_features])
@@ -113,44 +112,29 @@ X_train = pd.concat([X_train,cat_df],axis=1)
 
 
 '''Pipelines'''
-def interaction_terms(X):
-    return((X[:,0])*(X[:,1]))
-
-def encoder_term(function_transformer,features_names_in):
-    return('encoder_term')
-
-def interaction_term_name(function_transformer,features_names_in):
-    return('interaction_term')
 
 
-def internet_encode(X):
+def internet_interaction(X):
     internet_access_map = {'yes':2,"no":1}
-    internet_encoded =(X['internet_access'].map(internet_access_map))
-    return(internet_encoded.values.reshape(-1,1))
+    internet_encoded =(X[:,0].map(internet_access_map))
+    study_method = X[:,1]
+    return((internet_encoded*study_method).reshape(-1,1))
 
-def sleep_encode(X):
+def sleep_interaction(X):
     sleep_q_map = {'poor':1,'average':2,'good':3},
-    sleep_enc=X_train['sleep_quality'].map(sleep_q_map)
-    return(sleep_enc.values.reshape(-1,1))
+    sleep_q=X[:,0].map(sleep_q_map)
+    sleep_hours = X[:,1]
+    return(sleep_q*sleep_hours).reshape(-1,1)
 
 
-
-
-def ratio_pipeline():
-    return(make_pipeline(
-        SimpleImputer(strategy='most_frequent'),
-        FunctionTransformer(interaction_terms,feature_names_out=interaction_term_name),
-    ))
-
-
-internet_pipeline = make_pipeline(
+internet_interaction_pipeline = make_pipeline(
     SimpleImputer(strategy='median'),
-    FunctionTransformer(internet_encode,validate=False)
+    FunctionTransformer(internet_interaction,validate=False)
 )
 
-sleep_pipeline = make_pipeline(
+sleep_interaction_pipeline = make_pipeline(
     SimpleImputer(strategy='median'),
-    FunctionTransformer(sleep_encode,validate=False)
+    FunctionTransformer(sleep_interaction,validate=False)
 )
 
 
@@ -164,7 +148,12 @@ default_num_pipeline = make_pipeline(
     SimpleImputer(strategy='median'),
 )
 
-tree_preprocessing = ColumnTransformer([])
+tree_preprocessing = ColumnTransformer([
+    ('Internetxstudy_hours',internet_interaction_pipeline,['internet_access','study_hours']),
+    ('sleep_encoded',sleep_interaction_pipeline,['sleep_quality','sleep_hours']),
+    ('cat_feat',cat_pipeline,['gender','course','exam_difficulty','study_method','facility_rating']),
+    ('numeric',default_num_pipeline,['age'])
+])
 
 #RandomSearchCV 
 
