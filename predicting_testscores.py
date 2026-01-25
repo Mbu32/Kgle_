@@ -161,7 +161,7 @@ submissions = pd.DataFrame({
     'exam_score': prediction
 })
 
-submissions.to_csv('testscores_submission.csv',index=False)
+submissions.to_csv('data_playground/testscores_submission.csv',index=False)
 #RandomSearchCV 
 '''
 mapping_xgb = {'model__learning_rate':np.logspace(-2,-.5,10),
