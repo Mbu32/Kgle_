@@ -111,24 +111,24 @@ features = [ 'age', 'gender', 'course', 'study_hours', 'class_attendance',
 
 def internet_interaction(X):
     internet_access_map = {'yes':2,"no":1}
-    internet_encoded =(X[:,0].map(internet_access_map))
+    internet_encoded =pd.Series(X[:,0].map(internet_access_map)).fillna(0)
     study_method = X[:,1]
     return((internet_encoded*study_method).reshape(-1,1))
 
 def sleep_interaction(X):
     sleep_q_map = {'poor':1,'average':2,'good':3},
-    sleep_q=X[:,0].map(sleep_q_map)
+    sleep_q=pd.Series(X[:,0].map(sleep_q_map)).fillna(0)
     sleep_hours = X[:,1]
     return(sleep_q*sleep_hours).reshape(-1,1)
 
 
 internet_interaction_pipeline = make_pipeline(
-    SimpleImputer(strategy='median'),
+    SimpleImputer(strategy='most_frequent'),
     FunctionTransformer(internet_interaction,validate=False)
 )
 
 sleep_interaction_pipeline = make_pipeline(
-    SimpleImputer(strategy='median'),
+    SimpleImputer(strategy='most_frequent'),
     FunctionTransformer(sleep_interaction,validate=False)
 )
 
