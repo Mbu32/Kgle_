@@ -110,7 +110,7 @@ def internet_interaction(X):
     return((internet_encoded*study_hours).reshape(-1,1))
 
 def sleep_interaction(X):
-    sleep_q_map = {'poor':1,'average':2,'good':3}
+    sleep_q_map = {'poor':0,'average':1,'good':2}
     sleep_q= np.vectorize(sleep_q_map.get)(X[:,0])
     sleep_hours = X[:,1].astype(float)
     return(sleep_q*sleep_hours).reshape(-1,1)
@@ -337,17 +337,16 @@ preprocessing_linear_models = ColumnTransformer([
 
 kn_pipeline = Pipeline([('preprocessing',preprocessing_linear_models),
                         ('scaler',StandardScaler()),
+                        ('PCA',PCA(n_components=10)),
                         ('model',KNeighborsRegressor())])
 
 
 
 param_distributions = {
-    'scaler': [StandardScaler(), MinMaxScaler(), RobustScaler(), 'passthrough'],
-    'model__n_neighbors': np.arange(3, 51),  
+    'model__n_neighbors': np.arange(10,50,10),  
     'model__weights': ['uniform', 'distance'],
-    'model__p': [1, 2],  # 1: Manhattan, 2: Euclidean
-    'model__algorithm': ['auto', 'ball_tree', 'kd_tree', 'brute'],
-    'model__leaf_size': np.arange(20, 61, 10),  
+    'model__p': [1, 2],
+    'model__leaf_size': np.arange(20, 50, 10),  
     'model__metric': ['minkowski', 'manhattan', 'euclidean', 'chebyshev']
 }
 
@@ -356,7 +355,7 @@ param_distributions = {
 search = RandomizedSearchCV(
     kn_pipeline,
     param_distributions=param_distributions,
-    n_iter=25,  
+    n_iter=15,  
     cv=3,
     scoring='neg_root_mean_squared_error',  
     n_jobs=-1,

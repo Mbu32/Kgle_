@@ -79,13 +79,72 @@ submissions.to_csv('Submissions_csv/testscores_submission1.csv',index=False)"""
 
 
 
-elapsed = time.time() - start_time
-hours = int(elapsed // 3600)
-minutes = int((elapsed % 3600) // 60)
-seconds = int(elapsed % 60)
 
-print(f"\n⏱️  Total time: {hours:02d}:{minutes:02d}:{seconds:02d}")
-os.system(f'say "Program finished in {hours} hours, {minutes} minutes, {seconds} seconds"')
+
+
+
+
+
+
+# FIXED: Functions that handle 2D array input properly
+def poly_features_single(X):
+    return (X[:, 0] ** 2).reshape(-1, 1)
+
+def log_features_single(X):
+    return (np.log1p(X[:, 0])).reshape(-1, 1)
+
+def sqrt_single(X):
+    return (np.sqrt(X[:, 0])).reshape(-1, 1)
+
+def interaction_term(X):
+    return (X[:, 0] * X[:, 1]).reshape(-1, 1)  
+
+def ratio_term(X):
+    eps = 1e-5
+    return (X[:, 0] / (X[:, 1] + eps)).reshape(-1, 1)
+
+
+
+
+preprocessing = ColumnTransformer([
+    
+    ('core', make_pipeline(SimpleImputer(strategy='median')), ['study_hours', 'class_attendance', 'sleep_hours', 'age']),
+
+
+    ('poly_study', FunctionTransformer(poly_features_single, validate=False), ['study_hours']),
+    ('poly_attendance', FunctionTransformer(poly_features_single, validate=False), ['class_attendance']),
+    ('poly_sleep', FunctionTransformer(poly_features_single, validate=False), ['sleep_hours']),
+    ('poly_age', FunctionTransformer(poly_features_single, validate=False), ['age']),
+    
+    ('log_study', FunctionTransformer(log_features_single, validate=False), ['study_hours']),
+    ('log_attendance', FunctionTransformer(log_features_single, validate=False), ['class_attendance']),
+    ('log_sleep', FunctionTransformer(log_features_single, validate=False), ['sleep_hours']),
+    
+    ('sqrt_study', FunctionTransformer(sqrt_single, validate=False), ['study_hours']),
+    ('sqrt_attendance', FunctionTransformer(sqrt_single, validate=False), ['class_attendance']),
+    
+    ('interaction_att_study', FunctionTransformer(interaction_term, validate=False), ['class_attendance', 'study_hours']),
+    ('interaction_sleep_study', FunctionTransformer(interaction_term, validate=False), ['sleep_hours', 'study_hours']),
+    ('interaction_att_sleep', FunctionTransformer(interaction_term, validate=False), ['class_attendance', 'sleep_hours']),
+    ('interaction_age_study', FunctionTransformer(interaction_term, validate=False), ['age', 'study_hours']),
+    
+    ('ratio_study_sleep', FunctionTransformer(ratio_term, validate=False), ['study_hours', 'sleep_hours']),
+    ('ratio_att_sleep', FunctionTransformer(ratio_term, validate=False), ['class_attendance', 'sleep_hours']),
+    ('ratio_att_study', FunctionTransformer(ratio_term, validate=False), ['class_attendance', 'study_hours']),
+    
+], remainder='passthrough')  
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
