@@ -8,7 +8,7 @@ import os
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler, FunctionTransformer, PolynomialFeatures
+from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler, FunctionTransformer, PolynomialFeatures, MinMaxScaler,RobustScaler
 from sklearn.compose import TransformedTargetRegressor, ColumnTransformer, make_column_selector, make_column_transformer
 from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.metrics import root_mean_squared_error
@@ -305,7 +305,7 @@ Xgb_pipeline = Pipeline(
 
 
 '''Pipelines for linear models'''
-"""
+
 num_poly_pipeline = Pipeline([
     ('imputer', SimpleImputer(strategy='median')),
     ('poly', PolynomialFeatures(
@@ -313,13 +313,13 @@ num_poly_pipeline = Pipeline([
         interaction_only=True,
         include_bias=False
     )),
-    ('scaler', StandardScaler())
+    #('scaler', StandardScaler())
 ])
 
 cat_pipeline = make_pipeline(
     SimpleImputer(strategy='most_frequent'),
     OneHotEncoder(handle_unknown='ignore'),
-    StandardScaler(with_mean=False)
+    #StandardScaler(with_mean=False)
 )
 
 
@@ -328,18 +328,88 @@ preprocessing_linear_models = ColumnTransformer([
      ['study_hours', 'sleep_hours', 'class_attendance', 'age']),
     ('cat', cat_pipeline,
      ['internet_access','gender','course','exam_difficulty',
-      'study_method','facility_rating']),
+      'study_method','facility_rating','sleep_quality']),
 ], remainder='drop')
 
 
-preprocessing_linear_models.fit(X_train)
-
-X_transformed = preprocessing_linear_models.transform(X_train)
-feature_names = preprocessing_linear_models.get_feature_names_out()
 
 
-X_df = pd.DataFrame(X_transformed, columns=feature_names)
-"""
+
+kn_pipeline = Pipeline([('preprocessing',preprocessing_linear_models),
+                        ('scaler',StandardScaler()),
+                        ('model',KNeighborsRegressor())])
+
+
+
+param_distributions = {
+    'scaler': [StandardScaler(), MinMaxScaler(), RobustScaler(), 'passthrough'],
+    'model__n_neighbors': np.arange(3, 51),  
+    'model__weights': ['uniform', 'distance'],
+    'model__p': [1, 2],  # 1: Manhattan, 2: Euclidean
+    'model__algorithm': ['auto', 'ball_tree', 'kd_tree', 'brute'],
+    'model__leaf_size': np.arange(20, 61, 10),  
+    'model__metric': ['minkowski', 'manhattan', 'euclidean', 'chebyshev']
+}
+
+
+
+search = RandomizedSearchCV(
+    kn_pipeline,
+    param_distributions=param_distributions,
+    n_iter=25,  
+    cv=3,
+    scoring='neg_root_mean_squared_error',  
+    n_jobs=-1,
+    verbose=1,
+    random_state=42
+)
+
+search.fit(X_train,y_train)
+print(f"\nBest RMSE: {-search.best_score_:.4f}")
+print(f"Best parameters: {search.best_params_}")
+
+
+
+
+#kn_pipeline = Pipeline([('preprocessing',preprocessing_linear_models),('model',KNeighborsRegressor())])
+#ridge_pipeline = Pipeline([('preprocessing', preprocessing_linear_models),('model', Ridge(alpha=1.0))])
+#lasso_pipeline = Pipeline([('preprocessing', preprocessing_linear_models),('model', Lasso(alpha=0.01, max_iter=5000))])
+#elastic_pipeline = Pipeline([('preprocessing', preprocessing_linear_models),('model', ElasticNet(alpha=0.01, max_iter=5000))])
+
+
+#reg_cv = RegressionCV(n_splits=3,shuffle=True,random_state=42)
+
+
+#ridge_score = reg_cv.evaluate(model=ridge_pipeline,X=X_train,y=y_train)
+#lasso_score = reg_cv.evaluate(model=lasso_pipeline,X=X_train,y=y_train)
+#kn_score = reg_cv.evaluate(model=kn_pipeline,X=X_train,y=y_train)
+#elas_score = reg_cv.evaluate(model=elastic_pipeline,X=X_train,y=y_train)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+'''
+{'rmse_mean': np.float64(10.81981755504166), 'rmse_std': np.float64(0.008024932325262916), 'rmse_per_fold': [10.830917592933842, 10.812220299584643, 10.816314772606495]} 
+ {'rmse_mean': np.float64(9.61703441587507), 'rmse_std': np.float64(0.004846259489596193), 'rmse_per_fold': [9.619038832675935, 9.610356286269488, 9.621708128679785]}    
+ {'rmse_mean': np.float64(9.617034370511687), 'rmse_std': np.float64(0.0048451305058780985), 'rmse_per_fold': [9.61903929616415, 9.610357567259065, 9.621706248111844]} 
+ {'rmse_mean': np.float64(9.61832344826526), 'rmse_std': np.float64(0.004779318574393633), 'rmse_per_fold': [9.620992909965025, 9.611611142708465, 9.622366292122292]}  
+
+'''
+
 
 """num_features = [
     'num_poly__study_hours',
@@ -356,101 +426,12 @@ for col in num_features:
 
 
 
+
+
+
+
+
 """
-lr_pipeline = Pipeline([('preprocessing',preprocessing_linear_models),('model',LinearRegression())])
-kn_pipeline = Pipeline([('preprocessing',preprocessing_linear_models),('model',KNeighborsRegressor())])
-ridge_pipeline = Pipeline([('preprocessing', preprocessing_linear_models),('model', Ridge(alpha=1.0))])
-lasso_pipeline = Pipeline([('preprocessing', preprocessing_linear_models),('model', Lasso(alpha=0.01, max_iter=5000))])
-
-
-reg_cv = RegressionCV(n_splits=3,shuffle=True,random_state=42)
-
-
-lr_score = reg_cv.evaluate(model=lr_pipeline,X=X_train,y=y_train)
-ridge_score = reg_cv.evaluate(model=ridge_pipeline,X=X_train,y=y_train)
-lasso_score = reg_cv.evaluate(model=lasso_pipeline,X=X_train,y=y_train)
-kn_score = reg_cv.evaluate(model=kn_pipeline,X=X_train,y=y_train)
-
-
-print(kn_score,'\n',lr_score,'\n',ridge_score,'\n',lasso_score)"""
-
-
-'''
-{'rmse_mean': np.float64(10.81981755504166), 'rmse_std': np.float64(0.008024932325262916), 'rmse_per_fold': [10.830917592933842, 10.812220299584643, 10.816314772606495]} 
- {'rmse_mean': np.float64(9.61703441587507), 'rmse_std': np.float64(0.004846259489596193), 'rmse_per_fold': [9.619038832675935, 9.610356286269488, 9.621708128679785]}    
- {'rmse_mean': np.float64(9.617034370511687), 'rmse_std': np.float64(0.0048451305058780985), 'rmse_per_fold': [9.61903929616415, 9.610357567259065, 9.621706248111844]} 
- {'rmse_mean': np.float64(9.61832344826526), 'rmse_std': np.float64(0.004779318574393633), 'rmse_per_fold': [9.620992909965025, 9.611611142708465, 9.622366292122292]}  
-
-'''
-
-
-
-
-
-#Pipelines for Kneighbours
-
-
-def internet_interaction(X):
-    study_hours = X[:,1].astype(float)
-    internet_encoded = np.where(X[:,0]=='yes' ,2,1)
-    return((internet_encoded*study_hours).reshape(-1,1))
-
-def sleep_interaction(X):
-    sleep_q_map = {'poor':1,'average':2,'good':3}
-    sleep_q= np.vectorize(sleep_q_map.get)(X[:,0])
-    sleep_hours = X[:,1].astype(float)
-    return(sleep_q*sleep_hours).reshape(-1,1)
-
-
-def internet_hours_name(function_transformer,feature_names_in):
-    return['Internetxstudy_hours']
-
-
-def sleep_quality_name(function_transformer,feature_names_in):
-    return['sleep_q_int']
-
-
-def internet_interaction_pipeline():
-    return(make_pipeline(
-        SimpleImputer(strategy='most_frequent'),
-        FunctionTransformer(internet_interaction,validate=False,
-                            feature_names_out=internet_hours_name)))
-
-
-def sleep_interaction_pipeline():
-    return (make_pipeline(
-        SimpleImputer(strategy='most_frequent'),
-        FunctionTransformer(sleep_interaction,validate=False,
-                            feature_names_out=sleep_quality_name)))
-
-
-cat_pipeline = make_pipeline(
-    SimpleImputer(strategy='most_frequent'),
-    OneHotEncoder(handle_unknown='ignore')
-)
-
-
-default_num_pipeline = make_pipeline(
-    SimpleImputer(strategy='median'),
-    StandardScaler()
-)
-
-
-preprocessing_tree = ColumnTransformer([
-        ('Internetxstudy_hours',internet_interaction_pipeline(),['internet_access','study_hours']),
-        ('sleep_q_int',sleep_interaction_pipeline(),['sleep_quality','sleep_hours']),
-        ('cat_feat',cat_pipeline,['gender','course','exam_difficulty','study_method','facility_rating']),
-        ('numeric',default_num_pipeline,['age','class_attendance'])
-        ],remainder='drop', verbose_feature_names_out=True)
-
-#lets try kneighbours
-
-kn_pipeline = Pipeline([('preprocessing',preprocessing_tree),
-                        #('PCA',PCA(n_components=,random_state=42,svd_solver='randomized')),
-                        ('model',KNeighborsRegressor(n_neighbors=5,weights='distance'))])
-
-reg_cv = RegressionCV(n_splits=3,shuffle=True,random_state=42)
-
 kn_scores = cross_val_score(kn_pipeline, X_train, y_train, 
                            cv=3, scoring='r2', n_jobs=-1)
 
@@ -463,5 +444,4 @@ param_grid_knn = {
     'knn__metric': ['euclidean', 'manhattan', 'minkowski'],
     'knn__p': [1, 2],  
 }
-
-print("end of run ")
+"""
