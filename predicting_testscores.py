@@ -17,7 +17,7 @@ from sklearn.model_selection import cross_val_score, cross_val_predict, train_te
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.svm import LinearSVR, SVR
-from sklearn.ensemble import VotingRegressor, StackingRegressor, RandomForestRegressor, ExtraTreesRegressor,BaggingRegressor
+from sklearn.ensemble import VotingRegressor, StackingRegressor
 from xgboost import XGBRegressor
 from sklearn.linear_model import LinearRegression, Ridge,Lasso,ElasticNet
 from sklearn.svm import LinearSVR, SVR
@@ -303,35 +303,15 @@ Xgb_pipeline = Pipeline(
 
 '''Pipelines for linear models'''
 
-def internet_interaction(X):
-    study_hours = X[:,1].astype(float)
-    internet_encoded = np.where(X[:,0]=='yes' ,1.5,1)
-    return((internet_encoded*study_hours).reshape(-1,1))
-
-def sleep_interaction(X):
-    sleep_q_map = {'poor':1,'average':2,'good':3}
-    sleep_q= np.vectorize(sleep_q_map.get)(X[:,0])
-    sleep_hours = X[:,1].astype(float)
-    return(sleep_q*sleep_hours).reshape(-1,1)
-
-
-def internet_hours_name(function_transformer,feature_names_in):
-    return['Internetxstudy_hours']
-
-
-def sleep_quality_name(function_transformer,feature_names_in):
-    return['sleep_q_int']
-
-
-def internet_interaction_pipeline():
-    return(make_pipeline(
-        SimpleImputer(strategy='most_frequent'),
-        FunctionTransformer(internet_interaction,validate=False,
-                            feature_names_out=internet_hours_name),
-        StandardScaler())
-)
-
-
+num_poly_pipeline = Pipeline([
+    ('imputer', SimpleImputer(strategy='median')),
+    ('poly', PolynomialFeatures(
+        degree=2,
+        interaction_only=True,
+        include_bias=False
+    )),
+    ('scaler', StandardScaler())
+])
 
 cat_pipeline = make_pipeline(
     SimpleImputer(strategy='most_frequent'),
@@ -340,26 +320,13 @@ cat_pipeline = make_pipeline(
 )
 
 
-default_num_pipeline = make_pipeline(
-    SimpleImputer(strategy='median'),
-    StandardScaler()
-)
-
-sleep_log_pipeline = make_pipeline(
-    SimpleImputer(strategy='most_frequent'),
-    FunctionTransformer(sleep_interaction,validate=False,feature_names_out=sleep_quality_name),
-    FunctionTransformer(np.log1p,feature_names_out=sleep_quality_name),
-    StandardScaler()
-)
-
 preprocessing_linear_models = ColumnTransformer([
-        ('Internetxstudy_hours',internet_interaction_pipeline(),['internet_access','study_hours']),
-        ('sleep_q_int',sleep_log_pipeline,['sleep_quality','sleep_hours']),
-        ('cat_feat',cat_pipeline,['gender','course','exam_difficulty','study_method','facility_rating']),
-        ('numeric',default_num_pipeline,['age','class_attendance']),
-        ],remainder='drop', verbose_feature_names_out=True
-)
-
+    ('num_poly', num_poly_pipeline,
+     ['study_hours', 'sleep_hours', 'class_attendance', 'age']),
+    ('cat', cat_pipeline,
+     ['internet_access','gender','course','exam_difficulty',
+      'study_method','facility_rating']),
+], remainder='drop')
 
 
 preprocessing_linear_models.fit(X_train)
@@ -367,70 +334,51 @@ preprocessing_linear_models.fit(X_train)
 X_transformed = preprocessing_linear_models.transform(X_train)
 feature_names = preprocessing_linear_models.get_feature_names_out()
 
+
 X_df = pd.DataFrame(X_transformed, columns=feature_names)
 
 
-"""columns_to_plot = [
-    'sleep_q_int__sleep_q_int',
+"""num_features = [
+    'num_poly__study_hours',
+    'num_poly__sleep_hours',
+    'num_poly__class_attendance',
+    'num_poly__age'
 ]
 
-for col in columns_to_plot:
+for col in num_features:
     sns.kdeplot(X_df[col])
     plt.title(col)
     plt.show()
-
 """
 
-name_feate = [
-    'Internetxstudy_hours__Internetxstudy_hours', 
-    'sleep_q_int__sleep_q_int',
-    'cat_feat__gender_female', 
-    'cat_feat__gender_male',
-    'cat_feat__gender_other', 
-    'cat_feat__course_b.com',  
-    'cat_feat__course_b.sc',   
-    'cat_feat__course_b.tech',   
-    'cat_feat__course_ba',     
-    'cat_feat__course_bba',    
-    'cat_feat__course_bca',    
-    'cat_feat__course_diploma', 
-    'cat_feat__exam_difficulty_easy', 
-    'cat_feat__exam_difficulty_hard', 
-    'cat_feat__exam_difficulty_moderate', 
-    'cat_feat__study_method_coaching', 
-    'cat_feat__study_method_group study', 
-    'cat_feat__study_method_mixed', 
-    'cat_feat__study_method_online videos', 
-    'cat_feat__study_method_self-study', 
-    'cat_feat__facility_rating_high', 
-    'cat_feat__facility_rating_low', 
-    'cat_feat__facility_rating_medium', 
-    'numeric__age',
-    'numeric__class_attendance'
-]
 
 
 
+lr_pipeline = Pipeline([('preprocessing',preprocessing_linear_models),('model',LinearRegression())])
+kn_pipeline = Pipeline([('preprocessing',preprocessing_linear_models),('model',KNeighborsRegressor())])
+ridge_pipeline = Pipeline([('preprocessing', preprocessing_linear_models),('model', Ridge(alpha=1.0))])
+lasso_pipeline = Pipeline([('preprocessing', preprocessing_linear_models),('model', Lasso(alpha=0.01, max_iter=5000))])
 
 
-#Stacking Regressor ? Probably not. I'll use votingregressor. Dont think my laptop can handle this one. Also catboost is leading byt a ton, so I'll weights with most going to Cat.
+reg_cv = RegressionCV(n_splits=3,shuffle=True,random_state=42)
 
 
-
-"""Stacking Regressor
-
-
-stack = StackingRegressor(
-    estimators=[
-        ('rf', rf_pipeline),
-        ('ridge', ridge_pipeline),
-        ('hgb', hgb_pipeline)
-    ],
-    final_estimator=Ridge(alpha=1.0),
-    passthrough=False,
-    n_jobs=-1
-)
+lr_score = reg_cv.evaluate(model=lr_pipeline,X=X_train,y=y_train)
+ridge_score = reg_cv.evaluate(model=ridge_pipeline,X=X_train,y=y_train)
+lasso_score = reg_cv.evaluate(model=lasso_pipeline,X=X_train,y=y_train)
+kn_score = reg_cv.evaluate(model=kn_pipeline,X=X_train,y=y_train)
 
 
-add XGB after we check those three
-"""
+print(kn_score,'\n',lr_score,'\n',ridge_score,'\n',lasso_score)
+
+
+'''
+this is LinearReg{'rmse_mean': np.float64(9.2435962886809), 'rmse_std': np.float64(0.00789611414883387), 'rmse_per_fold': [9.23885523516837, 9.237210975290688, 9.254722655583638]}
+ this is lsvr{'rmse_mean': np.float64(9.246294499553754), 'rmse_std': np.float64(0.007667748786962956), 'rmse_per_fold': [9.241025876388251, 9.240720719723457, 9.257136902549549]}
+ this is ridge{'rmse_mean': np.float64(9.243596288145742), 'rmse_std': np.float64(0.0078960948127433), 'rmse_per_fold': [9.238855366682138, 9.237210881262355, 9.254722616492732]}
+ this is Lasso{'rmse_mean': np.float64(9.243633158973196), 'rmse_std': np.float64(0.007880704163634879), 'rmse_per_fold': [9.238915497307156, 9.237247505917749, 9.254736473694685]}
+
+
+'''
+
+

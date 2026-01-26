@@ -86,3 +86,24 @@ seconds = int(elapsed % 60)
 
 print(f"\n⏱️  Total time: {hours:02d}:{minutes:02d}:{seconds:02d}")
 os.system(f'say "Program finished in {hours} hours, {minutes} minutes, {seconds} seconds"')
+
+
+
+
+"""Stacking Regressor
+
+
+stack = StackingRegressor(
+    estimators=[
+        ('rf', rf_pipeline),
+        ('ridge', ridge_pipeline),
+        ('hgb', hgb_pipeline)
+    ],
+    final_estimator=Ridge(alpha=1.0),
+    passthrough=False,
+    n_jobs=-1
+)
+
+
+add XGB after we check those three
+"""
