@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import tarfile
-import urllib.request
+import os
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.impute import SimpleImputer
@@ -95,9 +95,9 @@ X_train['studhours_internet'] = X_train['internet_encoded']*X_train['study_hours
 
 
 
-'''Pipelines'''
+#Pipelines for trees
 
-
+"""
 def internet_interaction(X):
     study_hours = X[:,1].astype(float)
     internet_encoded = np.where(X[:,0]=='yes' ,2,1)
@@ -148,14 +148,14 @@ preprocessing_tree = ColumnTransformer([
         ('sleep_q_int',sleep_interaction_pipeline(),['sleep_quality','sleep_hours']),
         ('cat_feat',cat_pipeline,['gender','course','exam_difficulty','study_method','facility_rating']),
         ('numeric',default_num_pipeline,['age','class_attendance'])
-        ],remainder='drop', verbose_feature_names_out=True)
+        ],remainder='drop', verbose_feature_names_out=True)"""
 
 
 
 
 
 #preprocessing tree I'll use for RandomForest, XGboost, LightGBM, 
-#for Catboost I'll have to switch it up because we donr need onehotencoder for that one
+#for Catboost I'll have to switch it up because we dont need onehotencoder for that one
 """rf_pipeline = Pipeline([
     ('preprocessing',preprocessing_tree),
     ('model_rf', RandomForestRegressor(random_state=42))
@@ -179,8 +179,8 @@ print(light_scores,'\n',cat_scores)
 
 
 Randomforest CV RMSE: 9.726 ± 0.018
-{'rmse_mean': np.float64(9.447802217749887), 'rmse_std': np.float64(0.014736158789610541), 'rmse_per_fold': [9.467744016819557, 9.44307298314212, 9.432589653287987]} 
- {'rmse_mean': np.float64(8.769734450398255), 'rmse_std': np.float64(0.014535704008107124), 'rmse_per_fold': [8.789620570202096, 8.764301015300843, 8.755281765691828]}
+Lightgbm: {'rmse_mean': 9.447802217749887, 'rmse_std': np.float64(0.014736158789610541), 'rmse_per_fold': [9.467744016819557, 9.44307298314212, 9.432589653287987]} 
+CatBoost: {'rmse_mean': 8.769734450398255, 'rmse_std': np.float64(0.014535704008107124), 'rmse_per_fold': [8.789620570202096, 8.764301015300843, 8.755281765691828]}
 
 '''
 
@@ -258,13 +258,16 @@ print(best_model,'\n',score_tree)"""
 
 #Model after RandomSearchCV parameters:
 """
-final_model = XGBRegressor(learning_rate=0.046415888336127774,n_estimators= 1200,subsample=1,
-                               colsample_bytree=.7,
+Xgb_pipeline = Pipeline(
+    [('preprocessing',preprocessing_tree),
+    ('model',XGBRegressor(learning_rate=0.041700904432450864,n_estimators= 1400,subsample=0.9280934509687381,
+                               colsample_bytree=0.6825330330763264,
                                objective='reg:squarederror',
                                max_depth=6,eval_metric='rmse',
-                               reg_lambda=1,reg_alpha=0,
+                               reg_lambda=1.3866486140614158,reg_alpha=0.8880652023044383,
                                tree_method='hist',n_jobs=-1,
-                               random_state=42)
+                               random_state=42))]
+)
 """
 
 #Results of XGB:
@@ -297,7 +300,7 @@ final_model = XGBRegressor(learning_rate=0.046415888336127774,n_estimators= 1200
 
 
 '''Pipelines for linear models'''
-"""
+
 def internet_interaction(X):
     study_hours = X[:,1].astype(float)
     internet_encoded = np.where(X[:,0]=='yes' ,2,1)
@@ -358,7 +361,6 @@ preprocessing_linear_models = ColumnTransformer([
 )
 
 
-"""
 
 
 
@@ -419,3 +421,5 @@ submissions = pd.DataFrame({
 })
 
 submissions.to_csv('data_playground/testscores_submission.csv',index=False)"""
+
+os.system('say"your program has finished"')
