@@ -26,9 +26,13 @@ from lightgbm import LGBMRegressor
 from catboost import CatBoostRegressor
 from perm_class import RegressionCV, ClusterSimilarity
 from sklearn.preprocessing import PowerTransformer
+from sklearn.manifold import LocallyLinearEmbedding
+from sklearn.random_projection import GaussianRandomProjection
+from sklearn.decomposition import PCA
 
 
-#most likely, I have a feeling the best way to calculate this would be through a Decision tree method. Maybe Kneighbour?
+print("run",'\n')
+#most likely, I have a feeling the best way to calculate this would be through a Decision tree method. 
 #could even be a regression tbh
 train = pd.read_csv('data_playground/train.csv')
 test_set = pd.read_csv('data_playground/test.csv')
@@ -151,8 +155,6 @@ preprocessing_tree = ColumnTransformer([
         ('cat_feat',cat_pipeline,['gender','course','exam_difficulty','study_method','facility_rating']),
         ('numeric',default_num_pipeline,['age','class_attendance'])
         ],remainder='drop', verbose_feature_names_out=True)"""
-
-
 
 
 
@@ -293,6 +295,7 @@ Xgb_pipeline = Pipeline(
 
 
 
+
 #second part.
 
 # LINEAR MODELS PLUS THEIR PIPELINE + Distribution Check, anything else? Well who knows my friend, who knows
@@ -302,7 +305,7 @@ Xgb_pipeline = Pipeline(
 
 
 '''Pipelines for linear models'''
-
+"""
 num_poly_pipeline = Pipeline([
     ('imputer', SimpleImputer(strategy='median')),
     ('poly', PolynomialFeatures(
@@ -336,7 +339,7 @@ feature_names = preprocessing_linear_models.get_feature_names_out()
 
 
 X_df = pd.DataFrame(X_transformed, columns=feature_names)
-
+"""
 
 """num_features = [
     'num_poly__study_hours',
@@ -353,7 +356,7 @@ for col in num_features:
 
 
 
-
+"""
 lr_pipeline = Pipeline([('preprocessing',preprocessing_linear_models),('model',LinearRegression())])
 kn_pipeline = Pipeline([('preprocessing',preprocessing_linear_models),('model',KNeighborsRegressor())])
 ridge_pipeline = Pipeline([('preprocessing', preprocessing_linear_models),('model', Ridge(alpha=1.0))])
@@ -369,16 +372,96 @@ lasso_score = reg_cv.evaluate(model=lasso_pipeline,X=X_train,y=y_train)
 kn_score = reg_cv.evaluate(model=kn_pipeline,X=X_train,y=y_train)
 
 
-print(kn_score,'\n',lr_score,'\n',ridge_score,'\n',lasso_score)
+print(kn_score,'\n',lr_score,'\n',ridge_score,'\n',lasso_score)"""
 
 
 '''
-this is LinearReg{'rmse_mean': np.float64(9.2435962886809), 'rmse_std': np.float64(0.00789611414883387), 'rmse_per_fold': [9.23885523516837, 9.237210975290688, 9.254722655583638]}
- this is lsvr{'rmse_mean': np.float64(9.246294499553754), 'rmse_std': np.float64(0.007667748786962956), 'rmse_per_fold': [9.241025876388251, 9.240720719723457, 9.257136902549549]}
- this is ridge{'rmse_mean': np.float64(9.243596288145742), 'rmse_std': np.float64(0.0078960948127433), 'rmse_per_fold': [9.238855366682138, 9.237210881262355, 9.254722616492732]}
- this is Lasso{'rmse_mean': np.float64(9.243633158973196), 'rmse_std': np.float64(0.007880704163634879), 'rmse_per_fold': [9.238915497307156, 9.237247505917749, 9.254736473694685]}
-
+{'rmse_mean': np.float64(10.81981755504166), 'rmse_std': np.float64(0.008024932325262916), 'rmse_per_fold': [10.830917592933842, 10.812220299584643, 10.816314772606495]} 
+ {'rmse_mean': np.float64(9.61703441587507), 'rmse_std': np.float64(0.004846259489596193), 'rmse_per_fold': [9.619038832675935, 9.610356286269488, 9.621708128679785]}    
+ {'rmse_mean': np.float64(9.617034370511687), 'rmse_std': np.float64(0.0048451305058780985), 'rmse_per_fold': [9.61903929616415, 9.610357567259065, 9.621706248111844]} 
+ {'rmse_mean': np.float64(9.61832344826526), 'rmse_std': np.float64(0.004779318574393633), 'rmse_per_fold': [9.620992909965025, 9.611611142708465, 9.622366292122292]}  
 
 '''
 
 
+
+
+
+#Pipelines for Kneighbours
+
+
+def internet_interaction(X):
+    study_hours = X[:,1].astype(float)
+    internet_encoded = np.where(X[:,0]=='yes' ,2,1)
+    return((internet_encoded*study_hours).reshape(-1,1))
+
+def sleep_interaction(X):
+    sleep_q_map = {'poor':1,'average':2,'good':3}
+    sleep_q= np.vectorize(sleep_q_map.get)(X[:,0])
+    sleep_hours = X[:,1].astype(float)
+    return(sleep_q*sleep_hours).reshape(-1,1)
+
+
+def internet_hours_name(function_transformer,feature_names_in):
+    return['Internetxstudy_hours']
+
+
+def sleep_quality_name(function_transformer,feature_names_in):
+    return['sleep_q_int']
+
+
+def internet_interaction_pipeline():
+    return(make_pipeline(
+        SimpleImputer(strategy='most_frequent'),
+        FunctionTransformer(internet_interaction,validate=False,
+                            feature_names_out=internet_hours_name)))
+
+
+def sleep_interaction_pipeline():
+    return (make_pipeline(
+        SimpleImputer(strategy='most_frequent'),
+        FunctionTransformer(sleep_interaction,validate=False,
+                            feature_names_out=sleep_quality_name)))
+
+
+cat_pipeline = make_pipeline(
+    SimpleImputer(strategy='most_frequent'),
+    OneHotEncoder(handle_unknown='ignore')
+)
+
+
+default_num_pipeline = make_pipeline(
+    SimpleImputer(strategy='median'),
+    StandardScaler()
+)
+
+
+preprocessing_tree = ColumnTransformer([
+        ('Internetxstudy_hours',internet_interaction_pipeline(),['internet_access','study_hours']),
+        ('sleep_q_int',sleep_interaction_pipeline(),['sleep_quality','sleep_hours']),
+        ('cat_feat',cat_pipeline,['gender','course','exam_difficulty','study_method','facility_rating']),
+        ('numeric',default_num_pipeline,['age','class_attendance'])
+        ],remainder='drop', verbose_feature_names_out=True)
+
+#lets try kneighbours
+
+kn_pipeline = Pipeline([('preprocessing',preprocessing_tree),
+                        #('PCA',PCA(n_components=,random_state=42,svd_solver='randomized')),
+                        ('model',KNeighborsRegressor(n_neighbors=5,weights='distance'))])
+
+reg_cv = RegressionCV(n_splits=3,shuffle=True,random_state=42)
+
+kn_scores = cross_val_score(kn_pipeline, X_train, y_train, 
+                           cv=3, scoring='r2', n_jobs=-1)
+
+print(f"KNN CV R² scores: {kn_scores}")
+print(f"Mean R²: {kn_scores.mean():.3f} (±{kn_scores.std():.3f})")
+
+param_grid_knn = {
+    'knn__n_neighbors': [3, 5, 7, 10, 15],
+    'knn__weights': ['uniform', 'distance'],
+    'knn__metric': ['euclidean', 'manhattan', 'minkowski'],
+    'knn__p': [1, 2],  
+}
+
+print("end of run ")
