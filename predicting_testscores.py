@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -23,7 +24,8 @@ from sklearn.svm import LinearSVR, SVR
 from sklearn.inspection import permutation_importance
 from lightgbm import LGBMRegressor
 from catboost import CatBoostRegressor
-from perm_class import RegressionCV
+from perm_class import RegressionCV, ClusterSimilarity
+from sklearn.preprocessing import PowerTransformer
 
 
 #most likely, I have a feeling the best way to calculate this would be through a Decision tree method. Maybe Kneighbour?
@@ -291,7 +293,7 @@ Xgb_pipeline = Pipeline(
 
 
 
-
+#second part.
 
 # LINEAR MODELS PLUS THEIR PIPELINE + Distribution Check, anything else? Well who knows my friend, who knows
 
@@ -303,7 +305,7 @@ Xgb_pipeline = Pipeline(
 
 def internet_interaction(X):
     study_hours = X[:,1].astype(float)
-    internet_encoded = np.where(X[:,0]=='yes' ,2,1)
+    internet_encoded = np.where(X[:,0]=='yes' ,1.5,1)
     return((internet_encoded*study_hours).reshape(-1,1))
 
 def sleep_interaction(X):
@@ -330,14 +332,6 @@ def internet_interaction_pipeline():
 )
 
 
-def sleep_interaction_pipeline():
-    return (make_pipeline(
-        SimpleImputer(strategy='most_frequent'),
-        FunctionTransformer(sleep_interaction,validate=False,
-                            feature_names_out=sleep_quality_name),
-        StandardScaler())
-)
-
 
 cat_pipeline = make_pipeline(
     SimpleImputer(strategy='most_frequent'),
@@ -351,32 +345,69 @@ default_num_pipeline = make_pipeline(
     StandardScaler()
 )
 
+sleep_log_pipeline = make_pipeline(
+    SimpleImputer(strategy='most_frequent'),
+    FunctionTransformer(sleep_interaction,validate=False,feature_names_out=sleep_quality_name),
+    FunctionTransformer(np.log1p,feature_names_out=sleep_quality_name),
+    StandardScaler()
+)
 
 preprocessing_linear_models = ColumnTransformer([
         ('Internetxstudy_hours',internet_interaction_pipeline(),['internet_access','study_hours']),
-        ('sleep_q_int',sleep_interaction_pipeline(),['sleep_quality','sleep_hours']),
+        ('sleep_q_int',sleep_log_pipeline,['sleep_quality','sleep_hours']),
         ('cat_feat',cat_pipeline,['gender','course','exam_difficulty','study_method','facility_rating']),
-        ('numeric',default_num_pipeline,['age','class_attendance'])
+        ('numeric',default_num_pipeline,['age','class_attendance']),
         ],remainder='drop', verbose_feature_names_out=True
 )
 
 
 
+preprocessing_linear_models.fit(X_train)
+
+X_transformed = preprocessing_linear_models.transform(X_train)
+feature_names = preprocessing_linear_models.get_feature_names_out()
+
+X_df = pd.DataFrame(X_transformed, columns=feature_names)
 
 
+"""columns_to_plot = [
+    'sleep_q_int__sleep_q_int',
+]
 
+for col in columns_to_plot:
+    sns.kdeplot(X_df[col])
+    plt.title(col)
+    plt.show()
 
+"""
 
-
-
-
-
-
-
-
-
-
-
+name_feate = [
+    'Internetxstudy_hours__Internetxstudy_hours', 
+    'sleep_q_int__sleep_q_int',
+    'cat_feat__gender_female', 
+    'cat_feat__gender_male',
+    'cat_feat__gender_other', 
+    'cat_feat__course_b.com',  
+    'cat_feat__course_b.sc',   
+    'cat_feat__course_b.tech',   
+    'cat_feat__course_ba',     
+    'cat_feat__course_bba',    
+    'cat_feat__course_bca',    
+    'cat_feat__course_diploma', 
+    'cat_feat__exam_difficulty_easy', 
+    'cat_feat__exam_difficulty_hard', 
+    'cat_feat__exam_difficulty_moderate', 
+    'cat_feat__study_method_coaching', 
+    'cat_feat__study_method_group study', 
+    'cat_feat__study_method_mixed', 
+    'cat_feat__study_method_online videos', 
+    'cat_feat__study_method_self-study', 
+    'cat_feat__facility_rating_high', 
+    'cat_feat__facility_rating_low', 
+    'cat_feat__facility_rating_medium', 
+    'numeric__age',
+    'numeric__class_attendance'
+]
 
 
 
@@ -403,23 +434,3 @@ stack = StackingRegressor(
 
 add XGB after we check those three
 """
-
-
-
-
-
-
-
-
-#subsmission
-"""full_tree_pipeline.fit(X,y)
-prediction = full_tree_pipeline.predict(test_set)
-
-submissions = pd.DataFrame({
-    'id':test_set['id'],
-    'exam_score': prediction
-})
-
-submissions.to_csv('data_playground/testscores_submission.csv',index=False)"""
-
-os.system('say"your program has finished"')
