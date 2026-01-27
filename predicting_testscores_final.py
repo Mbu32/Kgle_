@@ -25,8 +25,8 @@ from lightgbm import LGBMRegressor
 from catboost import CatBoostRegressor
 from perm_class import RegressionCV
 import time
-from scipy.stats import loguniform, uniform
-
+from scipy.stats import loguniform, uniform, randint
+import perm_class
 
 start_time = time.time()
 
@@ -69,12 +69,6 @@ catboost = CatBoostRegressor(random_state=42,
 
 
 
-"""submissions = pd.DataFrame({
-    'id':test_set['id'],
-    'exam_score': prediction
-})
-
-submissions.to_csv('Submissions_csv/testscores_submission1.csv',index=False)"""
 
 
 
@@ -83,30 +77,33 @@ submissions.to_csv('Submissions_csv/testscores_submission1.csv',index=False)"""
 
 
 
-
-
-
-# FIXED: Functions that handle 2D array input properly
 def poly_features_single(X):
-    return (X[:, 0] ** 2).reshape(-1, 1)
+    return (X.iloc[:, 0] ** 2).values.reshape(-1, 1)
 
 def log_features_single(X):
-    return (np.log1p(X[:, 0])).reshape(-1, 1)
+    return (np.log1p(X.iloc[:, 0])).values.reshape(-1, 1)
 
 def sqrt_single(X):
-    return (np.sqrt(X[:, 0])).reshape(-1, 1)
+    return (np.sqrt(X.iloc[:, 0])).values.reshape(-1, 1)
 
 def interaction_term(X):
-    return (X[:, 0] * X[:, 1]).reshape(-1, 1)  
+    return (X.iloc[:, 0] * X.iloc[:, 1]).values.reshape(-1, 1)  
 
 def ratio_term(X):
     eps = 1e-5
-    return (X[:, 0] / (X[:, 1] + eps)).reshape(-1, 1)
+    return (X.iloc[:, 0] / (X.iloc[:, 1] + eps)).values.reshape(-1, 1)
 
 
+cat_pipeline = make_pipeline(
+    SimpleImputer(strategy='most_frequent'),
+    OneHotEncoder(handle_unknown='ignore'),
+    #StandardScaler(with_mean=False)
+)
+
+cat_cols =['internet_access','gender','course','exam_difficulty','study_method','facility_rating','sleep_quality']
 
 
-preprocessing = ColumnTransformer([
+preprocessing_numeric = ColumnTransformer([
     
     ('core', make_pipeline(SimpleImputer(strategy='median')), ['study_hours', 'class_attendance', 'sleep_hours', 'age']),
 
@@ -131,38 +128,42 @@ preprocessing = ColumnTransformer([
     ('ratio_study_sleep', FunctionTransformer(ratio_term, validate=False), ['study_hours', 'sleep_hours']),
     ('ratio_att_sleep', FunctionTransformer(ratio_term, validate=False), ['class_attendance', 'sleep_hours']),
     ('ratio_att_study', FunctionTransformer(ratio_term, validate=False), ['class_attendance', 'study_hours']),
-    
-], remainder='passthrough')  
+    ('cat_xgb', cat_pipeline,cat_cols)
+
+
+], remainder='passthrough',sparse_threshold=0)  
 
 
 
 
 
+xgb_pipeline = Pipeline([('preprocessing',preprocessing_numeric),
+                         ('model',XGBRegressor(learning_rate=0.046415888336127774,n_estimators= 1200,subsample=1,
+                                               colsample_bytree=.7,
+                                               objective='reg:squarederror',max_depth=6,eval_metric='rmse',
+                                               reg_lambda=1.6681005372000592,reg_alpha=0.7196856730011514,
+                                               tree_method='hist',n_jobs=-1,random_state=42))])
 
 
 
 
+"""Have to do a manual stacking"""
+reg_cv = RegressionCV1(n_splits=3)
 
+# 1. Generate the features for the stack
+xgb_oof = reg_cv.get_stacking_features(xgb_pipeline, X_train, y_train)
+cat_oof = reg_cv.get_stacking_features(catboost, X_train, y_train)
 
+# 2. Combine them
+X_meta = np.column_stack((xgb_oof, cat_oof))
 
+# 3. Fit the meta-model
+meta_model = Ridge(alpha=1.0)
+meta_model.fit(X_meta, y_train)
 
+"""submissions = pd.DataFrame({
+    'id':test_set['id'],
+    'exam_score': prediction
+})
 
-
-
-"""Stacking Regressor
-
-
-stack = StackingRegressor(
-    estimators=[
-        ('rf', rf_pipeline),
-        ('ridge', ridge_pipeline),
-        ('hgb', hgb_pipeline)
-    ],
-    final_estimator=Ridge(alpha=1.0),
-    passthrough=False,
-    n_jobs=-1
-)
-
-
-add XGB after we check those three
-"""
+submissions.to_csv('Submissions_csv/testscores_submission1.csv',index=False)"""
