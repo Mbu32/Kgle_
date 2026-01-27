@@ -23,10 +23,9 @@ from sklearn.svm import LinearSVR, SVR
 from sklearn.inspection import permutation_importance
 from lightgbm import LGBMRegressor
 from catboost import CatBoostRegressor
-from perm_class import RegressionCV
+from perm_class import RegressionCV, RegressionCV1
 import time
 from scipy.stats import loguniform, uniform, randint
-import perm_class
 
 start_time = time.time()
 
@@ -148,22 +147,31 @@ xgb_pipeline = Pipeline([('preprocessing',preprocessing_numeric),
 
 
 """Have to do a manual stacking"""
+
 reg_cv = RegressionCV1(n_splits=3)
 
-# 1. Generate the features for the stack
 xgb_oof = reg_cv.get_stacking_features(xgb_pipeline, X_train, y_train)
 cat_oof = reg_cv.get_stacking_features(catboost, X_train, y_train)
 
-# 2. Combine them
-X_meta = np.column_stack((xgb_oof, cat_oof))
+X_meta_train = np.column_stack((xgb_oof, cat_oof))
 
-# 3. Fit the meta-model
 meta_model = Ridge(alpha=1.0)
-meta_model.fit(X_meta, y_train)
+meta_model.fit(X_meta_train, y_train)
 
-"""submissions = pd.DataFrame({
+xgb_pipeline.fit(X_train, y_train)
+catboost.fit(X_train, y_train)
+
+xgb_test_preds = xgb_pipeline.predict(test_set_1)
+cat_test_preds = catboost.predict(test_set_1)
+
+X_meta_test = np.column_stack((xgb_test_preds, cat_test_preds))
+
+final_prediction = meta_model.predict(X_meta_test)
+
+
+submissions = pd.DataFrame({
     'id':test_set['id'],
-    'exam_score': prediction
+    'exam_score': final_prediction
 })
 
-submissions.to_csv('Submissions_csv/testscores_submission1.csv',index=False)"""
+submissions.to_csv('Submissions_csv/testscores_submission1.csv',index=False)
