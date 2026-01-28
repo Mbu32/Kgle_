@@ -132,6 +132,44 @@ preprocessing_numeric = ColumnTransformer([
 
 ], remainder='passthrough',sparse_threshold=0)  
 
+lin_pipeline = Pipeline([
+    ('preprocessing',preprocessing_numeric),
+    ('scaler',StandardScaler()),
+    ('model',Ridge())
+])
+
+
+
+lin_map = {
+    'model__alpha': np.logspace(-4, 4, 20),  # 0.0001 to 10000
+    'model__solver': ['auto', 'svd', 'cholesky'], #, 'lsqr', 'saga'
+    'model__max_iter': [1000, 2000, 5000],
+    'model__tol': [1e-3, 1e-4, 1e-5],  # Convergence tolerance
+}
+
+
+rv = RandomizedSearchCV(lin_pipeline,lin_map,
+                        cv=3,random_state=42,
+                        n_iter=15,
+                        scoring='neg_root_mean_squared_error',
+                        n_jobs=-1)
+
+
+rv.fit(X_train,y_train)
+print(f'the best params: {rv.best_params_}')
+print(f'the best scores: {-rv.best_score_:.4f}')
+
+
+
+
+"""lin_pipeline.fit(X_train,y_train)
+y_pred = lin_pipeline.predict(X_val)
+
+rmse_score = root_mean_squared_error(y_val,y_pred)
+print(rmse_score)"""
+
+
+
 
 
 
@@ -148,7 +186,7 @@ xgb_pipeline = Pipeline([('preprocessing',preprocessing_numeric),
 
 """Have to do a manual stacking"""
 
-reg_cv = RegressionCV1(n_splits=3)
+"""reg_cv = RegressionCV1(n_splits=3)
 
 xgb_oof = reg_cv.get_stacking_features(xgb_pipeline, X_train, y_train)
 cat_oof = reg_cv.get_stacking_features(catboost, X_train, y_train)
@@ -174,4 +212,4 @@ submissions = pd.DataFrame({
     'exam_score': final_prediction
 })
 
-submissions.to_csv('Submissions_csv/testscores_submission1.csv',index=False)
+submissions.to_csv('Submissions_csv/testscores_submission1.csv',index=False)"""
