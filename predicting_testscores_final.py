@@ -141,10 +141,10 @@ lin_pipeline = Pipeline([
 
 
 lin_map = {
-    'model__alpha': np.logspace(-4, 4, 20),  # 0.0001 to 10000
-    'model__solver': ['auto', 'svd', 'cholesky'], #, 'lsqr', 'saga'
-    'model__max_iter': [1000, 2000, 5000],
-    'model__tol': [1e-3, 1e-4, 1e-5],  # Convergence tolerance
+    'model__alpha': np.logspace(-2, 2, 20),  # 0.0001 to 10000
+    'model__solver': ['auto', 'svd', 'saga'], 
+    'model__max_iter': [5000,10000],
+    'model__tol': [1e-5, 1e-6, 1e-7],  # Convergence tolerance
 }
 
 
@@ -159,7 +159,9 @@ rv.fit(X_train,y_train)
 print(f'the best params: {rv.best_params_}')
 print(f'the best scores: {-rv.best_score_:.4f}')
 
+#y_pred = rv.best_estimator_.predict(X_val)
 
+#rmse = root_mean_squared_error(y_val,y_pred)
 
 
 """lin_pipeline.fit(X_train,y_train)
