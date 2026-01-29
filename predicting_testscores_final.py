@@ -52,20 +52,6 @@ test_set_1 = test_set[features].copy()
 
 
 
-catboost = CatBoostRegressor(random_state=42,
-                             verbose=0,loss_function='RMSE',
-                             eval_metric='RMSE',
-                             cat_features=['gender','course','exam_difficulty',
-                                                          'study_method','facility_rating',
-                                                          'sleep_quality','internet_access'],
-                            iterations=300,
-                            subsample=.8,
-                            learning_rate=.2,
-                            depth=8,
-                            colsample_bylevel=.6,
-                            l2_leaf_reg=7,
-                            min_data_in_leaf=20)
-
 
 
 
@@ -135,14 +121,15 @@ preprocessing_numeric = ColumnTransformer([
 lin_pipeline = Pipeline([
     ('preprocessing',preprocessing_numeric),
     ('scaler',StandardScaler()),
-    ('model',Ridge())
+    ('model',Ridge(tol=1e-5,solver='svd',max_iter=1000,alpha=0.0018329807108324356))
 ])
 
+lin_pipeline.fit(X_train,y_train)
 
 
-lin_map = {
+"""lin_map = {
     'model__alpha': np.logspace(-2, 2, 20),  # 0.0001 to 10000
-    'model__solver': ['auto', 'svd', 'saga'], 
+    'model__solver': ['auto', 'cholesky', 'saga'], 
     'model__max_iter': [5000,10000],
     'model__tol': [1e-5, 1e-6, 1e-7],  # Convergence tolerance
 }
@@ -157,12 +144,12 @@ rv = RandomizedSearchCV(lin_pipeline,lin_map,
 
 rv.fit(X_train,y_train)
 print(f'the best params: {rv.best_params_}')
-print(f'the best scores: {-rv.best_score_:.4f}')
+print(f'the best scores: {-rv.best_score_:.4f}')"""
 
-#y_pred = rv.best_estimator_.predict(X_val)
+"""y_pred = lin_pipeline.predict(X_val)
 
-#rmse = root_mean_squared_error(y_val,y_pred)
-
+rmse = root_mean_squared_error(y_val,y_pred)
+print(rmse)"""
 
 """lin_pipeline.fit(X_train,y_train)
 y_pred = lin_pipeline.predict(X_val)
@@ -170,6 +157,25 @@ y_pred = lin_pipeline.predict(X_val)
 rmse_score = root_mean_squared_error(y_val,y_pred)
 print(rmse_score)"""
 
+
+
+'''FINISHED MODELS'''
+
+
+
+catboost = CatBoostRegressor(random_state=42,
+                             verbose=0,loss_function='RMSE',
+                             eval_metric='RMSE',
+                             cat_features=['gender','course','exam_difficulty',
+                                                          'study_method','facility_rating',
+                                                          'sleep_quality','internet_access'],
+                            iterations=300,
+                            subsample=.8,
+                            learning_rate=.2,
+                            depth=8,
+                            colsample_bylevel=.6,
+                            l2_leaf_reg=7,
+                            min_data_in_leaf=20)
 
 
 
@@ -188,23 +194,26 @@ xgb_pipeline = Pipeline([('preprocessing',preprocessing_numeric),
 
 """Have to do a manual stacking"""
 
-"""reg_cv = RegressionCV1(n_splits=3)
+reg_cv = RegressionCV1(n_splits=3)
 
+lin_oof = reg_cv.get_stacking_features(lin_pipeline,X_train,y_train)
 xgb_oof = reg_cv.get_stacking_features(xgb_pipeline, X_train, y_train)
 cat_oof = reg_cv.get_stacking_features(catboost, X_train, y_train)
 
-X_meta_train = np.column_stack((xgb_oof, cat_oof))
+X_meta_train = np.column_stack((xgb_oof, cat_oof,lin_oof))
 
 meta_model = Ridge(alpha=1.0)
 meta_model.fit(X_meta_train, y_train)
 
+lin_pipeline.fit(X_train,y_train)
 xgb_pipeline.fit(X_train, y_train)
 catboost.fit(X_train, y_train)
 
+lin_test_preds = lin_pipeline.predict(test_set_1)
 xgb_test_preds = xgb_pipeline.predict(test_set_1)
 cat_test_preds = catboost.predict(test_set_1)
 
-X_meta_test = np.column_stack((xgb_test_preds, cat_test_preds))
+X_meta_test = np.column_stack((xgb_test_preds, cat_test_preds,lin_test_preds))
 
 final_prediction = meta_model.predict(X_meta_test)
 
@@ -214,4 +223,4 @@ submissions = pd.DataFrame({
     'exam_score': final_prediction
 })
 
-submissions.to_csv('Submissions_csv/testscores_submission1.csv',index=False)"""
+submissions.to_csv('Submissions_csv/testscores_submission3.csv',index=False)
