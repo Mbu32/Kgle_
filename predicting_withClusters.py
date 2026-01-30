@@ -345,7 +345,7 @@ lin_oof = reg_cv.get_stacking_features(lin_pipeline,X_train,y_train)
 xgb_oof = reg_cv.get_stacking_features(xgb_pipeline, X_train, y_train)
 cat_oof = reg_cv.get_stacking_features(catboost, X_train, y_train)
 
-X_meta_train = np.column_stack((xgb_oof, cat_oof)) #lin_oof
+X_meta_train = np.column_stack((xgb_oof, cat_oof,lin_oof)) 
 
 meta_model = Ridge(alpha=1.0)
 meta_model.fit(X_meta_train, y_train)
@@ -370,4 +370,3 @@ submissions = pd.DataFrame({
 submissions.to_csv('Submissions_csv/test_sub8_woclusters.csv',index=False)
 
 
-print('WE DUUUUNNNN')
