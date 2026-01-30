@@ -2,7 +2,5 @@ rel_class.py
 catboost_info/
 perm_class.py
 __pycache__/
-test_features.py
-tt_features.py
 Submissions_csv/
-predicting_withClusters.py
+optimizing.py
